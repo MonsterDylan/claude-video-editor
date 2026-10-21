@@ -1,0 +1,251 @@
+<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claude Video Editor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%23ff6b1a' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M24 6l18 10v16L24 42 6 32V16Z'/%3E%3Cpath d='M24 6v16l18 10' opacity='0.5'/%3E%3Cpath d='M24 22L6 32' opacity='0.5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Claude Video Editor homepage: dark by default with a light toggle. Cards = one size for every project (a vertical reel sits
+   whole inside the same 16:9 frame as a landscape video); List = one row per project. Search with /, six sorts. */
+html { color-scheme:dark; }
+html[data-theme="light"] { color-scheme:light; }
+:root, html[data-theme="dark"] {
+  --bg:#131311; --card:#24221c; --inset:#1a1915; --text:#e8e2d2; --muted:#8d8775; --accent:#ff6b1a;
+  --line:rgba(232,226,210,.12); --shadow:#000; --cardline:#24221c; --ok:#3fae6a;
+}
+html[data-theme="light"] {
+  --bg:#f2efe8; --card:#faf8f2; --inset:#ebe7de; --text:#1c1a16; --muted:#6f6a5c; --accent:#ff6b1a;
+  --line:rgba(28,26,22,.14); --shadow:rgba(28,26,22,.9); --cardline:#1c1a16; --ok:#2f7d4f;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+::selection { background:#ff6b1a; color:#fff; }
+body { background:var(--bg); color:var(--text); font:400 15px/1.45 'Outfit',system-ui,sans-serif; transition:background .25s, color .25s; }
+.wrap { padding:44px clamp(16px,3vw,44px) 80px; }
+header { margin-bottom:22px; padding-right:170px; }
+/* brand block: the editor page's own header, scaled up (line icon, RUBRIC / Editor / by line) */
+.brand { display:flex; align-items:center; gap:14px; white-space:nowrap; font-weight:400; }
+.brand svg { width:56px; height:56px; flex:none; }
+.brand strong { display:block; font-size:30px; font-weight:700; letter-spacing:2.5px; line-height:1; }
+.brand .app { display:block; font-size:20px; margin-top:4px; line-height:1; }
+.brand-sub { display:block; font-size:12px; color:var(--muted); margin-top:6px; line-height:1; }
+.brand-sub a { color:inherit; text-decoration:none; }
+.stats { display:flex; gap:22px; flex-wrap:wrap; color:var(--muted); font-size:14px; margin-top:14px; }
+.stats b { font-weight:600; letter-spacing:-0.01em; color:var(--text); font-size:20px; margin-right:5px; }
+.bar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:26px; }
+/* search: type to narrow the list, / jumps here, Esc clears */
+.search { position:relative; flex:0 1 320px; min-width:200px; }
+.search input { width:100%; font:400 14px 'Outfit',sans-serif; color:var(--text); background:var(--card); border:2px solid var(--cardline); border-radius:8px; padding:7px 34px 7px 36px; }
+.search input:focus { outline:none; border-color:var(--accent); }
+.search input::-webkit-search-cancel-button { display:none; }
+.search svg { position:absolute; left:11px; top:50%; transform:translateY(-50%); width:17px; height:17px; fill:none; stroke:var(--muted); stroke-width:2; stroke-linecap:round; }
+.search kbd { position:absolute; right:10px; top:50%; transform:translateY(-50%); font:600 10.5px/1 'Outfit',sans-serif; border:1.5px solid var(--line); border-bottom-width:2.5px; border-radius:4px; padding:2px 5px; color:var(--muted); }
+.chip { font:500 13px 'Outfit',sans-serif; color:var(--text); background:var(--card); border:2px solid var(--cardline); border-radius:8px;
+  padding:6px 13px; cursor:pointer; transition:transform .15s, box-shadow .15s; }
+.chip:hover { transform:translate(-2px,-2px); box-shadow:4px 4px 0 var(--shadow); }
+.chip:active { transform:translate(1px,1px); box-shadow:none; transition-duration:.06s; }
+.chip.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+.chip .n { opacity:.7; margin-left:5px; font-weight:600; }
+.sep { flex:1; }
+.sort { color:var(--muted); font-size:13px; }
+.sort button { font:500 13px 'Outfit',sans-serif; background:none; border:0; color:var(--muted); cursor:pointer; padding:4px 6px; }
+.sort button.on { color:var(--text); text-decoration:underline; text-underline-offset:4px; }
+.tr { position:fixed; top:16px; right:16px; z-index:100; display:flex; gap:10px; }
+.seg { display:flex; background:var(--card); border:2px solid var(--cardline); border-radius:8px; box-shadow:3px 3px 0 var(--shadow); overflow:hidden; }
+.seg button { font:500 13px 'Outfit',sans-serif; color:var(--muted); background:none; border:0; padding:0 12px; height:36px; cursor:pointer; display:flex; align-items:center; gap:7px; }
+.seg button svg { width:15px; height:15px; }
+.seg button.on { background:var(--accent); color:#fff; }
+#themeToggle { width:40px; height:40px; border:2px solid var(--cardline); background:var(--card); color:var(--text); border-radius:8px; cursor:pointer; font-size:18px; box-shadow:3px 3px 0 var(--shadow); }
+#themeToggle:active, .seg:active { box-shadow:1px 1px 0 var(--shadow); transform:translate(2px,2px); }
+.grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px, 1fr)); gap:30px 26px; }
+.card { display:flex; flex-direction:column; color:inherit; text-decoration:none; background:var(--card); border:2px solid var(--cardline);
+  border-radius:8px; box-shadow:6px 6px 0 var(--shadow); overflow:hidden; transition:transform .18s ease, box-shadow .18s ease; }
+.card:hover { transform:translate(-2px,-4px); box-shadow:9px 9px 0 var(--shadow); }
+.card:hover h3 { color:var(--accent); }
+.pv { position:relative; aspect-ratio:16/9; background:var(--inset); overflow:hidden; flex:none; }
+.pv img, .pv video { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; display:block; }
+.pv.vert img.fg, .pv.vert video { object-fit:contain; }
+.pv img.blur { filter:blur(16px) brightness(.5); transform:scale(1.25); }
+.pv video { opacity:0; transition:opacity .2s; }
+.card.playing .pv video { opacity:1; }
+/* no preview footage (or its picture won't load): a line icon on a dotted card */
+.noprev { position:absolute; inset:0; display:grid; place-items:center;
+  background-image:radial-gradient(var(--line) 1.1px, transparent 1.3px); background-size:14px 14px; background-position:7px 7px; }
+.noprev svg { width:64px; height:64px; fill:none; stroke:var(--text); stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; filter:drop-shadow(3px 3px 0 var(--shadow)); transition:transform .25s ease; }
+.noprev svg .a { stroke:var(--accent); }
+.card:hover .noprev svg { transform:rotate(-4deg) scale(1.06); }
+.th .noprev svg { width:26px; height:26px; stroke-width:2.6; filter:none; }
+.th .noprev { background-size:8px 8px; background-position:4px 4px; }
+.len { position:absolute; right:8px; bottom:8px; background:rgba(0,0,0,.72); color:#fff; font:600 12px 'Outfit',sans-serif; padding:2px 7px; border-radius:5px; }
+.bd { padding:12px 14px 14px; display:flex; flex-direction:column; flex:1; }
+.top { display:flex; gap:10px; align-items:center; color:var(--muted); font-size:12.5px; margin-bottom:5px; white-space:nowrap; }
+.fmt { display:inline-flex; align-items:center; gap:6px; }
+.fmt::before { content:''; display:inline-block; border:1.6px solid currentColor; border-radius:2px; }
+.fmt.landscape::before { width:14px; height:9px; } .fmt.vertical::before { width:9px; height:14px; }
+.top .v { color:var(--text); font-weight:600; }
+h3 { font-weight:500; font-size:17px; letter-spacing:-0.3px; line-height:1.25; transition:color .15s;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; min-height:2.5em; }
+.kick { color:var(--muted); font-size:12.5px; margin-top:3px; min-height:1.45em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.dates { display:flex; gap:14px; color:var(--muted); font-size:12px; margin-top:9px; white-space:nowrap; }
+.dates b { color:var(--text); font-weight:500; }
+.work { margin-top:auto; padding-top:9px; font-size:12.5px; color:var(--muted); display:flex; gap:12px; white-space:nowrap; }
+.work b { color:var(--text); font-weight:600; }
+.work .ok b { color:var(--ok); }
+.tablewrap { overflow-x:auto; background:var(--card); border:2px solid var(--cardline); border-radius:8px; box-shadow:6px 6px 0 var(--shadow); }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+th { text-align:left; font-weight:600; font-size:11px; letter-spacing:1.5px; text-transform:uppercase; color:var(--muted); padding:12px; white-space:nowrap; }
+td { padding:9px 12px; border-top:1px solid var(--line); vertical-align:middle; white-space:nowrap; }
+tr.row { cursor:pointer; transition:background .12s; }
+tr.row:hover { background:var(--inset); }
+tr.row:hover .tt { color:var(--accent); }
+td.num { font-weight:600; }
+.th { position:relative; width:88px; aspect-ratio:16/9; border-radius:5px; overflow:hidden; background:var(--inset); }
+.th img { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; }
+.th.vert img.fg { object-fit:contain; } .th img.blur { filter:blur(8px) brightness(.5); transform:scale(1.25); }
+.tt { font-weight:500; transition:color .12s; white-space:normal; min-width:220px; }
+.tk { color:var(--muted); font-size:12.5px; white-space:normal; }
+.muted { color:var(--muted); }
+.empty { color:var(--muted); padding:30px 0; max-width:640px; line-height:1.6; }
+code { font-size:12.5px; background:var(--card); padding:1px 6px; border-radius:4px; }
+footer { margin-top:40px; color:var(--muted); font-size:12.5px; }
+footer a { color:inherit; }
+@media (max-width:640px) { header { padding-right:0; padding-top:44px; } .brand strong { font-size:24px; } }
+</style></head>
+<body><div class="wrap">
+<div class="tr">
+  <div class="seg" role="group" aria-label="View">
+    <button data-view="cards" title="View as cards"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="1.5" y="1.5" width="5" height="5" rx="1"/><rect x="9.5" y="1.5" width="5" height="5" rx="1"/><rect x="1.5" y="9.5" width="5" height="5" rx="1"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg>Cards</button>
+    <button data-view="list" title="View as a list"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 3.5h9.5M5 8h9.5M5 12.5h9.5"/><path d="M1.5 3.5h.5M1.5 8h.5M1.5 12.5h.5"/></svg>List</button>
+  </div>
+  <button id="themeToggle" aria-label="Toggle dark / light mode">◐</button>
+</div>
+<header>
+  <h1 class="brand"><svg viewBox="0 0 48 48" fill="none" stroke="#ff6b1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6l18 10v16L24 42 6 32V16Z"/><path d="M24 6v16l18 10" opacity="0.5"/><path d="M24 22L6 32" opacity="0.5"/></svg>
+    <div><strong>Claude</strong><span class="app">Video Editor</span><small class="brand-sub">by Dylan Watkins</small></div></h1>
+  <div class="stats" id="stats"></div>
+</header>
+<div class="bar">
+  <label class="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+    <input type="search" id="q" autocomplete="off" aria-label="Search projects" placeholder="Search projects"><kbd>/</kbd></label>
+  <span id="chips" style="display:contents"></span>
+  <span class="sep"></span><span class="sort" id="sorts"></span>
+</div>
+<div id="view"><p class="empty">Loading...</p></div>
+<footer>Claude Video Editor · built on RUBRIC Editor by Jay E · CC BY 4.0</footer>
+</div>
+<script>
+const CONF = window.__RUBRIC_APP || {};
+const root = document.documentElement;
+const store = { get: k => { try { return localStorage.getItem(k); } catch (e) { return null; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} } };
+root.dataset.theme = store.get('rubric-theme') || 'dark';
+document.getElementById('themeToggle').onclick = () => { const t = root.dataset.theme === 'dark' ? 'light' : 'dark'; root.dataset.theme = t; store.set('rubric-theme', t); };
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const day = ms => { if (!ms) return '-'; const d = new Date(ms); return d.getDate() + ' ' + MON[d.getMonth()]; };
+const ago = ms => {
+  if (!ms) return '-'; const m = Math.round((Date.now() - ms) / 60000);
+  if (m < 1) return 'just now'; if (m < 60) return m + ' min ago';
+  const h = Math.round(m / 60); if (h < 24) return h + ' h ago';
+  return Math.round(h / 24) < 7 ? Math.round(h / 24) + ' d ago' : day(ms);
+};
+const clock = s => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60), x = String(s % 60).padStart(2, '0'); return h ? h + ':' + String(m).padStart(2, '0') + ':' + x : m + ':' + x; };
+
+const SORTS = [['edited', 'Last edited'], ['created', 'Newest'], ['oldest', 'Oldest'], ['longest', 'Longest'], ['shortest', 'Shortest'], ['az', 'A to Z']];
+const SORTFN = {
+  edited: (a, b) => (b.edited || 0) - (a.edited || 0),
+  created: (a, b) => (b.created || 0) - (a.created || 0),
+  oldest: (a, b) => (a.created || 0) - (b.created || 0),
+  longest: (a, b) => (b.seconds || 0) - (a.seconds || 0),
+  shortest: (a, b) => (a.seconds || 0) - (b.seconds || 0),
+  az: (a, b) => String(a.title).localeCompare(String(b.title), undefined, { numeric: true, sensitivity: 'base' })
+};
+const FILTERS = [['all', 'All'], ['landscape', 'Landscape'], ['vertical', 'Vertical']];
+let ITEMS = [], FILTER = 'all', Q = '', VIEW = store.get('rubric-home-view') || 'cards';
+let SORT = SORTS.some(s => s[0] === store.get('rubric-home-sort')) ? store.get('rubric-home-sort') : 'edited';
+const matches = (x, f) => f === 'all' || x.orientation === f;
+// search: every word must appear in the title, kicker or folder name
+const found = x => !Q || Q.split(/\s+/).every(w => [x.title, x.kicker, x.id].join(' ').toLowerCase().includes(w));
+
+function info(p) {
+  const vert = p.orientation === 'vertical';
+  const size = vert ? p.clips + (p.clips === 1 ? ' clip' : ' clips') : clock(p.seconds);
+  // no preview footage (or its picture won't load): a phone for vertical, a screen for landscape
+  const noprev = '<span class="noprev"><svg viewBox="0 0 48 48" aria-hidden="true">' + (vert
+    ? '<rect x="14" y="5" width="20" height="38" rx="4"/><path d="M21 9h6" opacity=".5"/><path class="a" d="M21 18.5l8 5.5-8 5.5Z"/>'
+    : '<rect x="5" y="9" width="38" height="26" rx="3"/><path d="M17 41h14M24 35v6" opacity=".5"/><path class="a" d="M20.5 16.5l9 5.5-9 5.5Z"/>') + '</svg></span>';
+  const img = c => '<img class="' + c + '" alt="" loading="lazy" onerror="this.remove()" src="' + esc(p.poster) + '">';
+  const pic = () => noprev + (p.poster ? (vert ? img('blur') : '') + img('fg') : '');
+  const work = '<span><b>' + p.comments + '</b> ' + (p.comments === 1 ? 'comment' : 'comments') + '</span>' +
+    (p.approved ? '<span class="ok"><b>' + p.approved + '</b> approved</span>' : '');
+  return { vert, size, pic, work, href: '/projects/' + encodeURIComponent(p.id) + '/' };
+}
+function card(p) {
+  const x = info(p);
+  return '<a class="card" href="' + x.href + '">' +
+    '<div class="pv' + (x.vert ? ' vert' : '') + '">' + x.pic() +
+      (p.video ? '<video muted loop playsinline preload="none" data-src="' + esc(p.video) + '"></video>' : '') +
+      '<span class="len">' + esc(x.size) + '</span></div>' +
+    '<div class="bd">' +
+      '<div class="top"><span class="fmt ' + (x.vert ? 'vertical' : 'landscape') + '">' + (x.vert ? 'Vertical' : 'Landscape') + '</span><span class="v">' +
+        esc(p.clips + (p.clips === 1 ? ' clip' : ' clips') + ' · ' + clock(p.seconds)) + '</span></div>' +
+      '<h3>' + esc(p.title) + '</h3><div class="kick">' + esc(p.kicker) + '</div>' +
+      '<div class="dates"><span>Created <b>' + day(p.created) + '</b></span><span>Edited <b>' + ago(p.edited) + '</b></span></div>' +
+      '<div class="work">' + x.work + '</div>' +
+    '</div></a>';
+}
+function row(p) {
+  const x = info(p);
+  return '<tr class="row" data-href="' + x.href + '">' +
+    '<td><div class="th' + (x.vert ? ' vert' : '') + '">' + x.pic() + '</div></td>' +
+    '<td><div class="tt">' + esc(p.title) + '</div><div class="tk">' + esc(p.kicker) + '</div></td>' +
+    '<td><span class="fmt ' + (x.vert ? 'vertical' : 'landscape') + '">' + (x.vert ? 'Vertical' : 'Landscape') + '</span></td>' +
+    '<td class="num">' + esc(p.clips + (p.clips === 1 ? ' clip' : ' clips') + ' · ' + clock(p.seconds)) + '</td>' +
+    '<td class="muted">' + day(p.created) + '</td><td class="muted">' + ago(p.edited) + '</td>' +
+    '<td><div class="work" style="padding:0">' + x.work + '</div></td></tr>';
+}
+const EMPTY = '<p class="empty">No projects yet. Ask your agent to run <code>/cut</code> on a recording, or make one from a cut you already have with ' +
+  '<code>node tools/make-project.mjs path/to/spec.json</code> (the README shows the spec), then refresh this page.</p>';
+function render() {
+  const list = ITEMS.filter(x => matches(x, FILTER) && found(x)).sort(SORTFN[SORT]);
+  const view = document.getElementById('view');
+  if (!ITEMS.length) view.innerHTML = EMPTY;
+  else if (!list.length) view.innerHTML = '<p class="empty">' + (Q ? 'Nothing matches "' + esc(Q) + '". Clear the search or pick All.' : 'Nothing here.') + '</p>';
+  else if (VIEW === 'list') view.innerHTML = '<div class="tablewrap"><table><thead><tr>' +
+    ['Preview', 'Project', 'Format', 'Length', 'Created', 'Edited', 'Review'].map(h => '<th>' + h + '</th>').join('') + '</tr></thead><tbody>' +
+    list.map(row).join('') + '</tbody></table></div>';
+  else view.innerHTML = '<div class="grid">' + list.map(card).join('') + '</div>';
+  document.querySelectorAll('.seg button').forEach(b => b.classList.toggle('on', b.dataset.view === VIEW));
+  document.getElementById('chips').innerHTML = FILTERS.map(([k, label]) =>
+    '<button class="chip' + (k === FILTER ? ' on' : '') + '" data-f="' + k + '">' + label + '<span class="n">' + ITEMS.filter(x => matches(x, k) && found(x)).length + '</span></button>').join('');
+  document.getElementById('sorts').innerHTML = 'Sort ' + SORTS.map(([k, label]) => '<button data-s="' + k + '" class="' + (SORT === k ? 'on' : '') + '">' + label + '</button>').join('');
+  const comments = ITEMS.reduce((a, x) => a + x.comments, 0);
+  document.getElementById('stats').innerHTML = '<span><b>' + ITEMS.length + '</b>' + (ITEMS.length === 1 ? 'project' : 'projects') + '</span>' +
+    '<span><b>' + comments + '</b>' + (comments === 1 ? 'comment' : 'comments') + '</span>';
+}
+document.addEventListener('click', e => {
+  const v = e.target.closest('[data-view]'); if (v) { VIEW = v.dataset.view; store.set('rubric-home-view', VIEW); render(); return; }
+  const f = e.target.closest('.chip[data-f]'); if (f) { FILTER = f.dataset.f; render(); return; }
+  const s = e.target.closest('[data-s]'); if (s) { SORT = s.dataset.s; store.set('rubric-home-sort', SORT); render(); return; }
+  const r = e.target.closest('tr.row'); if (r) location.href = r.dataset.href;
+});
+const qBox = document.getElementById('q');
+qBox.addEventListener('input', () => { Q = qBox.value.trim().toLowerCase(); render(); });
+qBox.addEventListener('keydown', e => { if (e.key === 'Escape') { qBox.value = ''; Q = ''; render(); qBox.blur(); } });
+document.addEventListener('keydown', e => {
+  if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || e.target.matches('input, textarea, [contenteditable]')) return;
+  e.preventDefault(); qBox.focus(); qBox.select();
+});
+// hover a card: its first clip plays, muted
+document.addEventListener('mouseover', e => {
+  const card = e.target.closest('.card'); if (!card || card.classList.contains('playing')) return;
+  const v = card.querySelector('video'); if (!v) return;
+  if (!v.src) v.src = v.dataset.src;
+  card.classList.add('playing'); v.play().catch(() => {});
+  card.addEventListener('mouseleave', () => { card.classList.remove('playing'); v.pause(); }, { once: true });
+});
+fetch('/api/projects', { headers: CONF.token ? { 'x-rubric-token': CONF.token } : {} })
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(d => { ITEMS = d.projects || []; render(); })
+  .catch(() => { document.getElementById('view').innerHTML = '<p class="empty">Couldn\'t load the projects. Is the server still running?</p>'; });
+</script>
+</body></html>

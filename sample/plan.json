@@ -1,0 +1,23 @@
+{
+  "id": "sample-recording",
+  "title": "Sample recording",
+  "kicker": "sample, cut by /cut",
+  "sections": [
+    {
+      "title": "Intro",
+      "keep": [[1.3, 4.4], [16.6, 20.35]],
+      "why": {
+        "7.0": "false start: line 2 stops at \"make your- um, sorry, let me start that line again\", and the whole line is said again at 16.7 s, so the last clean take stays"
+      }
+    },
+    {
+      "title": "Three tips",
+      "keep": [[22.9, 30.4], [37.05, 41.85], [44.35, 50.3], [52.75, 55.2]],
+      "why": {
+        "30.4": "long pause (6.7 s) after line 3",
+        "41.85": "pause between lines",
+        "50.3": "pause between lines"
+      }
+    }
+  ]
+}

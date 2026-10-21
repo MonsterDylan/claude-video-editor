@@ -1,0 +1,11 @@
+{
+ "recording": "raw-sample.mp4",
+ "duration": 57.7,
+ "width": 1280,
+ "height": 720,
+ "transcriber": "assemblyai",
+ "model": "universal-3-pro",
+ "language": "en",
+ "words": 93,
+ "transcribed": "2026-10-13T03:04:50.322Z"
+}

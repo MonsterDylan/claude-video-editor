@@ -1,0 +1,10 @@
+{
+  "transcriber": "assemblyai",
+  "editor": "",
+  "language": "en",
+  "air": 0.1,
+  "quietDb": null,
+  "reviewHeight": 720,
+  "elevenlabsModel": "scribe_v1",
+  "whisperModel": "small"
+}

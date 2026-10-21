@@ -1,0 +1,6 @@
+# your settings, keys and saved review work stay on your machine
+env.local
+projects/*/rubric-state.json
+projects/*/rubric-state.json.tmp
+projects/*/exports/
+work/

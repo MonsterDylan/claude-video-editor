@@ -1,0 +1,108 @@
+{
+ "id": "sample-recording",
+ "title": "Sample recording",
+ "kicker": "sample, cut by /cut",
+ "wordsUnit": "s",
+ "clips": [
+  {
+   "id": "01-intro",
+   "title": "Intro",
+   "raw": "raw-sample.mp4",
+   "rawWords": "words.json",
+   "keeps": [
+    [
+     1.233,
+     4.533
+    ],
+    [
+     16.433,
+     20.5
+    ]
+   ],
+   "removed": [
+    {
+     "from": 0,
+     "to": 1.233,
+     "why": "pause"
+    },
+    {
+     "from": 4.533,
+     "to": 16.433,
+     "why": "false start: line 2 stops at \"make your- um, sorry, let me start that line again\", and the whole line is said again at 16.7 s, so the last clean take stays"
+    },
+    {
+     "from": 20.5,
+     "to": 23.5,
+     "why": "after this section"
+    }
+   ],
+   "applyHint": "New kept ranges for this clip (raw seconds): in sample/plan.json, replace the \"keep\" of section 1 (\"Intro\") with this list and set \"exact\": true on it, then run cut.mjs again:",
+   "versions": [
+    {
+     "video": "cuts/01-intro-v1.mp4",
+     "note": "first cut",
+     "words": "cuts/01-intro-v1.words.json"
+    }
+   ]
+  },
+  {
+   "id": "02-three-tips",
+   "title": "Three tips",
+   "raw": "raw-sample.mp4",
+   "rawWords": "words.json",
+   "keeps": [
+    [
+     22.767,
+     30.667
+    ],
+    [
+     36.7,
+     42.033
+    ],
+    [
+     44.267,
+     50.367
+    ],
+    [
+     52.633,
+     55.433
+    ]
+   ],
+   "removed": [
+    {
+     "from": 19.767,
+     "to": 22.767,
+     "why": "before this section"
+    },
+    {
+     "from": 30.667,
+     "to": 36.7,
+     "why": "long pause (6.7 s) after line 3"
+    },
+    {
+     "from": 42.033,
+     "to": 44.267,
+     "why": "pause between lines"
+    },
+    {
+     "from": 50.367,
+     "to": 52.633,
+     "why": "pause between lines"
+    },
+    {
+     "from": 55.433,
+     "to": 57.7,
+     "why": "pause"
+    }
+   ],
+   "applyHint": "New kept ranges for this clip (raw seconds): in sample/plan.json, replace the \"keep\" of section 2 (\"Three tips\") with this list and set \"exact\": true on it, then run cut.mjs again:",
+   "versions": [
+    {
+     "video": "cuts/02-three-tips-v1.mp4",
+     "note": "first cut",
+     "words": "cuts/02-three-tips-v1.words.json"
+    }
+   ]
+  }
+ ]
+}

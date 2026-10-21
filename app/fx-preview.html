@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<!-- Claude Video Editor FX live preview (added 2026-10-19, Dylan's extension; not upstream). fx-lanes.js lays this page over the
+     clip and drives it: FXP.build() puts the FX lane's effects on a GSAP timeline exactly like a Hyperframes build, and
+     FXP.seek() keeps that timeline and its own muted copies of the clip on the editor's playhead. Its own page, so the
+     effect styles never touch the editor's, and effects that move or regrade the picture work on a real plate. -->
+<base href="/lib/fxcode/">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800;900&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&family=Instrument+Serif:ital@0;1&display=block" rel="stylesheet">
+<link rel="stylesheet" href="fx.css">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+  #wrap { position: absolute; left: 0; top: 0; width: 1080px; height: 1920px; transform-origin: 0 0; }
+  #fx-stage { background: #000; }
+  #fx-scene video, .fx-copy video { width: 1080px; height: 1920px; object-fit: cover; display: block; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="fx-stage">
+    <div id="fx-under"></div>
+    <div id="fx-scene"><video id="plate" muted playsinline preload="auto"></video><div id="fx-behind"></div></div>
+    <div class="fx-copy" id="fx-copy-1"><video muted playsinline preload="auto"></video></div>
+    <div class="fx-copy" id="fx-copy-2"><video muted playsinline preload="auto"></video></div>
+    <div id="fx-grade"></div>
+    <div id="fx-ui"></div>
+    <div id="fx-hud"></div>
+  </div>
+</div>
+<script src="fx.js"></script>
+<script>
+(function () {
+  const wrap = document.getElementById('wrap');
+  const vids = [...document.querySelectorAll('video')];
+  const fit = () => { const s = Math.min(innerWidth / 1080, innerHeight / 1920); wrap.style.transform = 'translate(' + (innerWidth - 1080 * s) / 2 + 'px,' + (innerHeight - 1920 * s) / 2 + 'px) scale(' + s + ')'; };
+  addEventListener('resize', fit); fit();
+  let tl = null, src = '', last = 0, errors = [];
+  const clear = id => { const el = document.getElementById(id); if (el) el.innerHTML = ''; };
+  function build(spec) {
+    if (tl) tl.kill();
+    if (spec.src && spec.src !== src) { src = spec.src; vids.forEach(v => { v.src = src; }); }
+    ['fx-under', 'fx-behind', 'fx-grade', 'fx-ui', 'fx-hud'].forEach(clear);
+    gsap.set(['#fx-scene', '.fx-copy'], { clearProps: 'all' });
+    const S = FX.S; S.cues = []; S.dims = []; S.pending = []; S.seed = 7;
+    window.FX_FACE = spec.face || null;
+    FX.init({ zone: 'full', top: 200, sfx: false });
+    tl = gsap.timeline({ paused: true });
+    errors = [];
+    (spec.items || []).forEach(it => {
+      try { if (typeof FX[it.fn] === 'function') FX[it.fn](tl, it.at, it.opts || {}); else errors.push(it.fn + ': not in fx.js'); }
+      catch (e) { errors.push(it.fn + ': ' + e.message); console.warn('[fx-preview]', it.fn, e); }
+    });
+    FX.finalize(tl);
+    tl.seek(last, false);
+    return errors;
+  }
+  function seek(t, playing) {
+    last = t;
+    if (tl) tl.seek(t, false);
+    vids.forEach(v => {
+      if (!v.src) return;
+      if (playing) { if (Math.abs(v.currentTime - t) > .2) v.currentTime = t; if (v.paused) v.play().catch(() => {}); }
+      else { if (!v.paused) v.pause(); if (Math.abs(v.currentTime - t) > .03) v.currentTime = t; }
+    });
+  }
+  window.FXP = { build, seek, ready: true, errors: () => errors };
+})();
+</script>
+</body>
+</html>

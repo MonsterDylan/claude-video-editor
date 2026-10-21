@@ -1,0 +1,1215 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Claude Video Editor</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%23ff6b1a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M24 6l18 10v16L24 42 6 32V16Z'/%3E%3Cpath d='M24 6v16l18 10' opacity='0.5'/%3E%3Cpath d='M24 22L6 32' opacity='0.5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Doto:wght@900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="editor-timeline.css">
+<style>
+  /* Ink Well Soft: r8, dark = borderless raised surfaces on black offset shadows, light = ink frames */
+  html { color-scheme: dark; }
+  html[data-theme="light"] { color-scheme: light; }
+  :root, html[data-theme="dark"] {
+    --bg:#131311; --card:#24221c; --card2:#2c2923; --well:#1c1a16; --text:#e8e2d2; --muted:#8d8775; --accent:#ff6b1a; --ok:#3fae6d; --okbg:rgba(63,174,109,.14);
+    --line:rgba(232,226,210,.22); --shadow:#000; --frame:#24221c; --fieldline:#1c1a16;
+    --hatch:rgba(232,226,210,.16); --cutband:rgba(255,107,26,.22); --wave:#6f6a5c; --wordbg:#3a352c;
+  }
+  html[data-theme="light"] {
+    --bg:#f2efe8; --card:#faf8f2; --card2:#ece8de; --well:#f2efe8; --text:#1c1a16; --muted:#6f6a5c; --accent:#ff6b1a; --ok:#2f7d4f; --okbg:rgba(47,125,79,.12);
+    --line:rgba(28,26,22,.18); --shadow:rgba(28,26,22,.9); --frame:#1c1a16; --fieldline:#1c1a16;
+    --hatch:rgba(28,26,22,.12); --cutband:rgba(255,107,26,.2); --wave:#a9a393; --wordbg:#dcd6c6;
+  }
+  * { box-sizing: border-box; }
+  ::selection { background: #ff6b1a; color: #fff; }
+  html, body { height: 100%; }
+  body { display: flex; flex-direction: column; overflow: hidden; margin: 0; background: var(--bg); color: var(--text); font: 400 14px/1.45 'Outfit', system-ui, sans-serif; transition: background .25s, color .25s; }
+  button, .chip, .reel-item, .w { cursor: pointer; }
+  textarea { font: inherit; color: var(--text); background: var(--well); border: 2px solid var(--fieldline); border-radius: 8px; padding: 10px 12px; width: 100%; resize: vertical; outline: none; box-shadow: 4px 4px 0 rgba(255,107,26,0); transition: box-shadow .3s ease, border-color .3s ease; }
+  textarea:focus { box-shadow: 4px 4px 0 rgba(255,107,26,1); }
+  html[data-theme="light"] textarea:focus { border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+  kbd { font: 500 10px/1 'Outfit', sans-serif; border: 1px solid currentColor; border-radius: 4px; padding: 2px 5px; margin-left: 7px; opacity: .65; }
+  .kicker { font-size: 11px; letter-spacing: 5px; text-transform: uppercase; color: var(--muted); font-weight: 400; }
+  .muted { color: var(--muted); }
+  .small { font-size: 12px; }
+  .doto { font-family: 'Doto', monospace; font-weight: 900; color: var(--accent); margin: 0 .18em; }
+  .spacer { flex: 1; }
+
+  /* buttons: flat at rest, shadow fades in on hover, press collapses it */
+  .btn { display: inline-flex; align-items: center; gap: 4px; font: 500 13px/1 'Outfit', sans-serif; letter-spacing: .3px; color: var(--text); background: var(--card); border: 2px solid var(--frame); border-radius: 8px; padding: 10px 14px; white-space: nowrap; box-shadow: 0 0 0 rgba(0,0,0,0); transition: transform .15s ease, box-shadow .15s ease, color .15s; }
+  .btn:hover { transform: translate(-2px,-2px); box-shadow: 5px 5px 0 var(--shadow); }
+  .btn:active { transform: translate(1px,1px); box-shadow: 0 0 0 rgba(0,0,0,0); transition-duration: .06s; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.tiny { padding: 8px 10px; font-size: 12px; }
+  .btn.tiny:hover { box-shadow: 4px 4px 0 var(--shadow); }
+  .btn.icon { min-width: 34px; justify-content: center; padding-left: 8px; padding-right: 8px; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
+  .btn.ghost:hover { transform: none; box-shadow: none; color: var(--accent); }
+
+  /* header */
+  .top { flex: none; display: flex; align-items: center; gap: 16px; padding: 12px 22px; border-bottom: 2px solid var(--line); flex-wrap: wrap; }
+  /* brand block */
+  .brand { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
+  .brand svg { width: 36px; height: 36px; flex: none; }
+  .brand strong { display: block; font-size: 18px; font-weight: 700; letter-spacing: 1.5px; line-height: 1; }
+  .brand span { display: block; font-size: 14px; margin-top: 3px; line-height: 1; }
+  .brand-sub { display: block; font-size: 11px; color: var(--muted); margin-top: 4px; line-height: 1; }
+  .brand-sub a { color: inherit; text-decoration: none; }
+  .home-link { text-decoration: none; }
+  .batch-kicker { margin-left: 18px; padding-left: 18px; border-left: 2px solid var(--line); }
+  /* versions: a slider that scrolls sideways inside the card (drag it, or use its thin bar), newest in view */
+  .vpills { position: relative; display: flex; gap: 4px; margin: 5px 0 1px; max-width: 100%; overflow-x: auto; padding-bottom: 5px; cursor: grab; }
+  .vpills::-webkit-scrollbar { height: 5px; }
+  .vpills::-webkit-scrollbar-thumb { border: 0; border-radius: 3px; }
+  .vpill { flex: none; }
+  .reel-item > span:last-child { min-width: 0; }
+  .vpill { font: 600 10px/1 'Outfit', sans-serif; letter-spacing: 1.5px; padding: 4px 6px; border: 2px solid var(--line); border-radius: 5px; background: none; color: var(--muted); }
+  .vpill:hover { color: var(--text); border-color: var(--text); }
+  .vpill.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .top-actions { margin-left: auto; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  /* Teach my /cut and Teach my /animate switches */
+  .switch { display: inline-flex; align-items: center; gap: 8px; font: 500 12.5px/1 'Outfit', sans-serif; color: var(--muted); background: none; border: 0; cursor: pointer; padding: 6px 4px; white-space: nowrap; }
+  .switch .sw { position: relative; width: 30px; height: 17px; border-radius: 9px; background: var(--line); transition: background .2s; flex: none; }
+  .switch .sw::after { content: ""; position: absolute; left: 2px; top: 2px; width: 13px; height: 13px; border-radius: 50%; background: var(--text); transition: transform .2s; }
+  .switch[aria-checked="true"] { color: var(--text); }
+  .switch[aria-checked="true"] .sw { background: var(--ok); }
+  .switch[aria-checked="true"] .sw::after { transform: translateX(13px); background: #fff; }
+  /* any window can go big from the expand button in its head (Esc or the button again to go back) */
+  .btn.grow { width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .btn.grow svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .grown { position: fixed !important; top: var(--grow-top, 84px); left: 14px; right: 14px; bottom: 14px; z-index: 60; margin: 0 !important; width: auto !important; height: auto !important; max-height: none !important; }
+  .grown .btn.grow { color: var(--accent); border-color: var(--accent); }
+  .rail.grown { background: var(--bg); border: 2px solid var(--frame); border-radius: 8px; box-shadow: 6px 6px 0 var(--shadow); padding: 14px; }
+  .rail-head { display: flex; align-items: center; gap: 10px; padding-right: 8px; }
+  .rail-head .kicker { flex: 1; }
+
+  /* shell: every region is its own window. Drag the lines between them to resize, double-click a line to reset it. */
+  * { scrollbar-color: var(--muted) transparent; }
+  *::-webkit-scrollbar { width: 12px; height: 12px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--muted); border-radius: 6px; border: 3px solid transparent; background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background-color: var(--accent); }
+  .shell { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--w-rail, 250px) 10px minmax(0,1fr); }
+  .split { position: relative; flex: none; z-index: 9; touch-action: none; user-select: none; }
+  .split::after { content: ""; position: absolute; background: var(--line); border-radius: 2px; transition: background .15s; }
+  .split.v { width: 10px; cursor: col-resize; }
+  .split.v::after { left: 4px; top: 0; bottom: 0; width: 2px; }
+  .split.h { height: 10px; cursor: row-resize; margin: 4px 0; }
+  .split.h::after { top: 4px; left: 0; right: 0; height: 2px; }
+  .split:hover::after, .split.drag::after { background: var(--accent); }
+  .rail { min-height: 0; overflow: hidden; padding: 14px 0 14px 14px; display: flex; flex-direction: column; gap: 10px; }
+  /* the reel list scrolls on its own, with its own bar, while the editor stays put */
+  .reel-list { flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; gap: 10px; padding: 4px 8px 10px 4px; }
+  .reel-item { flex: none; display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 8px; align-items: start; padding: 10px 10px 9px; border: 2px solid var(--frame); border-radius: 8px; background: var(--card); color: var(--text); text-align: left; font: inherit; box-shadow: 0 0 0 rgba(0,0,0,0); transition: transform .18s ease, box-shadow .18s ease; }
+  .reel-item:hover { transform: translate(-2px,-3px); box-shadow: 6px 6px 0 var(--shadow); }
+  .reel-item.on { box-shadow: 6px 6px 0 var(--accent); }
+  html[data-theme="light"] .reel-item.on { border-color: var(--accent); }
+  .reel-item .num { font-weight: 600; font-size: 17px; letter-spacing: -.01em; color: var(--muted); line-height: 1.1; }
+  .reel-item.on .num, .reel-item.on .t { color: var(--accent); }
+  .reel-item .t { font-weight: 500; font-size: 13px; line-height: 1.25; transition: color .15s; }
+  .reel-item .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .rail-note { flex: none; padding-right: 8px; }
+  .rail-note textarea { min-height: 64px; height: 64px; font-size: 13px; margin-top: 8px; }
+
+  .work { min-width: 0; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 14px 16px 18px 4px; display: flex; flex-direction: column; }
+  .stage { flex: none; height: var(--h-stage, clamp(320px, 52vh, 700px)); min-height: 0; display: grid; grid-template-columns: var(--w-player, 44%) 10px var(--w-script, 24%) 10px minmax(180px,1fr); grid-template-rows: minmax(0,1fr); }
+  .stage > .panel { margin: 0 6px 6px 0; }
+  .player { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+  /* the picture is always a true 16:9 box, as big as the window allows, so a pinned spot stays on its spot */
+  .vframe { flex: 1; min-height: 0; position: relative; container-type: size; display: flex; align-items: flex-start; justify-content: flex-start; }
+  .vbox { position: relative; width: min(calc(100cqw - 8px), calc((100cqh - 8px) * 16 / 9)); aspect-ratio: 16/9; }
+  .vbox video { display: block; width: 100%; height: 100%; background: #000; border: 2px solid var(--frame); border-radius: 8px; box-shadow: 6px 6px 0 var(--shadow); }
+  .vframe:fullscreen { background: #000; align-items: center; justify-content: center; }
+  .vframe:fullscreen .vbox { width: min(100cqw, calc(100cqh * 16 / 9)); }
+  /* a vertical batch (reels-data.js REEL_BATCH.orientation 'vertical') gets a true 9:16 box, so pins land where you click; a
+     landscape clip in that batch letterboxes inside it. Every other batch keeps the 16:9 box. */
+  body.portrait .vbox { width: min(calc(100cqw - 8px), calc((100cqh - 8px) * 9 / 16)); aspect-ratio: 9/16; }
+  body.portrait .vframe:fullscreen .vbox { width: min(100cqw, calc(100cqh * 9 / 16)); }
+  .vframe:fullscreen video { border: none; border-radius: 0; box-shadow: none; }
+  .vframe:fullscreen .pinlayer { inset: 0; border-radius: 0; cursor: pointer; }
+  .fs-bar { display: none; position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; align-items: center; gap: 12px; padding: 12px 18px; color: #fff; background: linear-gradient(0deg, rgba(0,0,0,.8), rgba(0,0,0,0)); opacity: 0; transition: opacity .2s; }
+  .vframe:fullscreen .fs-bar { display: flex; }
+  .vframe:fullscreen:hover .fs-bar { opacity: 1; }
+  .pinlayer { position: absolute; left: 2px; top: 2px; right: 2px; bottom: 2px; border-radius: 6px; cursor: crosshair; touch-action: none; }
+  .pin { position: absolute; width: 24px; height: 24px; margin: -12px 0 0 -12px; border-radius: 50%; background: var(--accent); color: #fff; border: 2px solid #fff; box-shadow: 0 2px 6px rgba(0,0,0,.5); font: 600 12px/20px 'Outfit', sans-serif; text-align: center; cursor: grab; user-select: none; }
+  .pin::after { content: ""; position: absolute; left: 50%; top: 50%; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; border: 1px solid rgba(255,255,255,.6); pointer-events: none; }
+  .pin.sel { outline: 3px solid var(--text); outline-offset: 2px; z-index: 2; }
+  .vbar { flex: none; display: flex; align-items: center; gap: 8px; padding: 8px 6px 6px 0; flex-wrap: wrap; }
+
+  /* panels = Ink Well Soft cards */
+  .panel { background: var(--card); border: 2px solid var(--frame); border-radius: 8px; box-shadow: 6px 6px 0 var(--shadow); display: flex; flex-direction: column; min-height: 0; overflow: hidden; }
+  .panel-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 2px solid var(--line); }
+  .script { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px; font-size: 16px; line-height: 1.8; user-select: text; }
+  .script .line { margin: 0 0 4px; }
+  .w { padding: 1px 1px; border-bottom: 2px solid transparent; border-radius: 3px; }
+  .w:hover { background: var(--card2); }
+  .w.now { color: var(--accent); font-weight: 600; }
+  .marks { flex: 1; min-height: 0; overflow: auto; padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 12px; background: var(--well); }
+  .empty { color: var(--muted); padding: 10px 4px; font-size: 13px; }
+
+  .mk { border: 2px solid var(--frame); border-radius: 8px; background: var(--card); padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 7px; box-shadow: 4px 4px 0 var(--shadow); transition: transform .18s ease, box-shadow .18s ease; }
+  .mk:hover { transform: translate(-1px,-2px); box-shadow: 6px 6px 0 var(--shadow); }
+  .mk.sel { box-shadow: 4px 4px 0 var(--accent); }
+  .mk.sel:hover { box-shadow: 6px 6px 0 var(--accent); }
+  html[data-theme="light"] .mk.sel { border-color: var(--accent); }
+  .mk.sel .mk-n { color: var(--accent); }
+  .mk-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .mk-n { font-weight: 600; font-size: 16px; min-width: 22px; letter-spacing: -.01em; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font: 500 11px/1 'Outfit', sans-serif; letter-spacing: 2px; text-transform: uppercase; padding: 6px 9px; border: 2px solid var(--line); border-radius: 6px; background: none; color: var(--muted); }
+  .chip::before { content: ""; width: 6px; height: 6px; background: currentColor; }
+  .chip.kind-pin { border-color: var(--accent); color: var(--accent); cursor: default; }
+  .chip.kind-add { border-color: var(--ok); color: var(--ok); cursor: default; }
+  .chip.kind-layer { border-color: var(--text); color: var(--text); cursor: default; }
+  /* what this version fixed: closed by default, so a long list never covers the comments */
+  .fixes { flex: none; border-bottom: 2px solid var(--line); }
+  .fixes-head { display: flex; align-items: center; gap: 8px; width: 100%; padding: 9px 14px; background: none; border: 0; text-align: left; font: 400 10px/1.2 'Outfit', sans-serif; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); }
+  .fixes-head:hover { color: var(--text); }
+  .fixes-head .caret { display: inline-block; letter-spacing: 0; font-size: 13px; color: var(--text); transition: transform .15s; }
+  .fixes-head[aria-expanded="true"] .caret { transform: rotate(90deg); }
+  .fixes-head .n { letter-spacing: 0; font-size: 11px; font-weight: 600; color: var(--bg); background: var(--muted); border-radius: 9px; padding: 2px 7px; }
+  .fixes-body { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 14px 10px; max-height: 150px; overflow: auto; }
+  .fixes-body[hidden] { display: none; }
+  .fix-item { font: 400 12px/1.2 'Outfit', sans-serif; text-align: left; color: var(--text); background: none; border: 2px solid var(--line); border-radius: 6px; padding: 5px 8px; cursor: pointer; }
+  .fix-item:hover { border-color: var(--text); }
+  .fix-item b { font-weight: 600; color: var(--accent); margin-right: 4px; font-variant-numeric: tabular-nums; }
+  .chip.applied { border-color: var(--text); color: var(--text); cursor: default; }
+  .chip.applied::before { display: none; }
+  .mk.done { opacity: .72; }
+  .mk.done .mk-words { text-decoration: line-through; text-decoration-color: var(--muted); }
+  .mk-time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .mk-words { font-size: 14px; }
+  .mk-scenes { font-size: 11px; color: var(--muted); }
+  .mk-why { font-size: 10px; letter-spacing: 4px; text-transform: uppercase; color: var(--muted); margin-top: 2px; }
+  .mk textarea { min-height: 42px; font-size: 13px; padding: 8px 10px; }
+
+  .timecode { font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.01em; font-size: 15px; white-space: nowrap; }
+  .chk { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); }
+  .chk input { accent-color: var(--accent); }
+  .zoom { display: flex; gap: 6px; }
+  .hints { padding: 6px 14px; border-top: 2px solid var(--line); font-size: 12px; color: var(--muted); }
+  .hints summary { cursor: pointer; width: max-content; }
+  .rawtog { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); cursor: pointer; user-select: none; }
+  .rawtog input { accent-color: var(--accent); width: 15px; height: 15px; margin: 0; cursor: pointer; }
+  .rawtog:has(input:checked) { color: var(--accent); }
+  .rawtog kbd { margin-left: 1px; }
+  .hints kbd { margin-left: 2px; margin-right: 2px; }
+  /* speed: click 1.0x for a slider; S and D still step it */
+  .speedwrap { position: relative; display: inline-flex; }
+  .speedpop { position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 40; display: flex; flex-direction: column; gap: 6px; width: 190px; padding: 10px 12px; background: var(--card); border: 2px solid var(--frame); border-radius: 8px; box-shadow: 5px 5px 0 var(--shadow); }
+  .speedpop[hidden] { display: none; }
+  .speedpop input { width: 100%; margin: 0; accent-color: var(--accent); }
+  .speedhint { font-size: 12px; color: var(--muted); }
+  /* Export: pick a size, then this clip or all; the ask goes to the agent like Copy comments */
+  .expwrap { position: relative; display: inline-flex; }
+  .exportpop { position: absolute; right: 0; top: calc(100% + 8px); z-index: 70; display: flex; flex-direction: column; gap: 8px; width: 220px; padding: 12px; background: var(--card); border: 2px solid var(--frame); border-radius: 8px; box-shadow: 5px 5px 0 var(--shadow); }
+  .exportpop[hidden] { display: none; }
+  .expres { display: flex; flex-direction: column; gap: 4px; }
+  .expres button { display: flex; align-items: baseline; justify-content: space-between; width: 100%; font: 500 13px/1 'Outfit', sans-serif; color: var(--text); background: none; border: 2px solid var(--line); border-radius: 6px; padding: 8px 10px; }
+  .expres button small { font-size: 11px; color: var(--muted); }
+  .expres button:hover { border-color: var(--text); }
+  .expres button.on { border-color: var(--accent); color: var(--accent); }
+  .exportpop .btn { justify-content: space-between; background: var(--card2); }
+  .exportpop .btn span { font-size: 11px; color: var(--muted); }
+  /* right-click menu on a comment */
+  .ctxmenu { position: fixed; z-index: 80; min-width: 120px; padding: 4px; background: var(--card); border: 2px solid var(--frame); border-radius: 8px; box-shadow: 5px 5px 0 var(--shadow); }
+  .ctxmenu[hidden] { display: none; }
+  .ctxmenu button { display: block; width: 100%; text-align: left; font: 500 13px/1 'Outfit', sans-serif; color: var(--text); background: none; border: 0; border-radius: 5px; padding: 8px 10px; }
+  .ctxmenu button:hover, .ctxmenu button:focus { background: var(--card2); color: var(--accent); outline: none; }
+
+  .reel-note { flex: none; display: block; border-top: 2px solid var(--line); }
+  .reel-note .kicker { display: block; padding: 8px 14px 0; }
+  .reel-note textarea { min-height: 46px; height: 46px; max-height: 40vh; border: none; border-radius: 0; background: var(--card); box-shadow: none; padding: 6px 14px 10px; }
+  .reel-note textarea:focus { box-shadow: inset 0 0 0 2px var(--accent); }
+
+  .toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 60; background: var(--text); color: var(--bg); padding: 11px 18px; font-weight: 500; border-radius: 8px; box-shadow: 4px 4px 0 var(--accent); }
+
+  #stPanel { flex: none; margin: 0 6px 8px 0; }
+  @media (max-width: 980px) {
+    body { overflow: auto; display: block; }
+    .shell { display: block; }
+    .split { display: none; }
+    .rail { padding-right: 14px; border-bottom: 2px solid var(--line); }
+    .reel-list { flex-direction: row; overflow-x: auto; overflow-y: hidden; }
+    .reel-item { min-width: 176px; }
+    .work { overflow: visible; padding: 14px; }
+    .stage { display: block; height: auto; }
+    .vframe { height: 56vw; }
+    .stage > .panel { height: 320px; margin: 10px 0; }
+  }
+  /* approved clips (approvals.js, or the Approve button) */
+  .reel-item.approved { border-color: var(--ok); background: linear-gradient(0deg, var(--okbg), var(--okbg)), var(--card); }
+  .reel-item.approved .num { color: var(--ok); }
+  .reel-item.approved .okline { font-size: 11px; font-weight: 600; color: var(--ok); margin-top: 3px; letter-spacing: .01em; }
+  .reel-item.approved.on { box-shadow: 6px 6px 0 var(--ok); }
+  html[data-theme="light"] .reel-item.approved.on { border-color: var(--ok); }
+  .reel-item.approved.on .num, .reel-item.approved.on .t { color: var(--ok); }
+  .btn.approve { border-color: var(--ok); color: var(--ok); background: transparent; }
+  .btn.approve.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <svg viewBox="0 0 48 48" fill="none" stroke="#ff6b1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M24 6l18 10v16L24 42 6 32V16Z"/><path d="M24 6v16l18 10" opacity="0.5"/><path d="M24 22L6 32" opacity="0.5"/></svg>
+    <div><strong>Claude</strong><span>Video Editor</span><small class="brand-sub">by Dylan Watkins</small></div>
+  </div>
+  <div class="kicker batch-kicker">Project</div>
+  <div class="top-actions">
+    <a class="btn tiny ghost home-link" href="/" title="Back to all projects">All projects</a>
+    <span id="saveState" class="muted small"></span>
+    <span class="expwrap"><button id="btnExport" class="btn tiny" aria-haspopup="true" aria-expanded="false" title="Render at a size you pick. Your agent does the render.">⤓ Export</button>
+      <span id="exportPop" class="exportpop" role="menu" hidden>
+        <span class="kicker">Resolution</span>
+        <span id="exportSizes" class="expres"></span>
+        <button id="btnExportClip" class="btn tiny" type="button">Render this clip <span id="expClipNum"></span></button>
+        <button id="btnExportAll" class="btn tiny" type="button">Render all <span id="expAllNum"></span></button>
+      </span></span>
+    <button class="switch" id="teachCut" role="switch" aria-checked="true" title="On: when your agent applies your comments, it also teaches your /cut skill what they say about how you like your cuts"><span class="sw"></span>Teach my /cut</button>
+    <button class="switch" id="teachAnim" role="switch" aria-checked="true" title="On: when your agent applies your comments, it also teaches your /animate skill what they say about how you like your animations"><span class="sw"></span>Teach my /animate</button>
+    <button id="btnCopy" class="btn tiny ghost" title="Comments, notes and trims on the clip and version you are looking at">Copy comments for this clip</button>
+    <button id="btnCopyAll" class="btn primary" title="Comments, notes and trims on every clip and version">Copy comments for ALL clips</button>
+    <button id="themeToggle" class="btn tiny icon" aria-label="Toggle dark / light mode">◐</button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="rail" id="rail">
+    <div class="rail-head"><span class="kicker">Reels</span><button class="btn tiny ghost grow" data-grow="rail" title="Make this window big (Esc to go back)" aria-label="Expand"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M10 20H4v-6"/><path d="M20 4l-6.5 6.5"/><path d="M4 20l6.5-6.5"/></svg></button></div>
+    <div class="reel-list" id="reelList"></div>
+    <label class="rail-note">
+      <span class="kicker">Across all reels</span>
+      <textarea id="globalNote" placeholder="Patterns you see in every reel"></textarea>
+    </label>
+  </aside>
+
+  <div class="split v" data-var="--w-rail" data-target="#rail" data-min="170" data-maxf="0.4" title="Drag to resize. Double-click to reset."></div>
+
+  <main class="work">
+    <section class="stage" id="stage">
+      <div class="player" id="player">
+        <div class="vframe" id="vframe">
+          <div class="vbox">
+            <video id="video" playsinline preload="auto"></video>
+            <video id="stVideo" preload="auto" playsinline></video>
+            <div class="st-tag" id="stTag" hidden></div>
+            <div class="pinlayer" id="pinlayer" title="Click to pin a comment on this spot"></div>
+          </div>
+          <div class="fs-bar"><button id="fsPlay" class="btn tiny">▶ Play</button><span id="fsTime" class="timecode"></span><span class="spacer"></span><button id="fsExit" class="btn tiny">✕ Exit full screen<kbd>Esc</kbd></button></div>
+        </div>
+        <div class="vbar">
+          <button id="btnPlay" class="btn tiny">▶ Play<kbd>Space</kbd></button>
+          <label class="rawtog st-only-raw" title="Tick to play the original recording, removed parts included (R)"><input type="checkbox" id="stRawToggle"> Raw footage<kbd>R</kbd></label>
+          <button id="btnMute" class="btn tiny icon" aria-label="Mute or unmute">🔊</button>
+          <span class="speedwrap"><button id="btnSpeed" class="btn tiny" title="Playback speed" aria-haspopup="true" aria-expanded="false">1.0x</button>
+            <span id="speedPop" class="speedpop" hidden><input type="range" id="speedRange" min="0.5" max="3" step="0.1" value="1" list="speedTicks" aria-label="Playback speed"><datalist id="speedTicks"><option value="1"></option></datalist><span class="speedhint">S slower · D faster</span></span></span>
+          <button id="btnFull" class="btn tiny" title="Show the preview on the whole screen">⛶ Full screen<kbd>F</kbd></button>
+          <span id="timecode" class="timecode">0.00 / 0.00s</span>
+        </div>
+      </div>
+      <div class="split v" data-var="--w-player" data-target="#player" data-min="260" data-maxf="0.7" title="Drag to resize. Double-click to reset."></div>
+      <div class="panel" id="scriptPanel">
+        <div class="panel-head"><span class="kicker">Script</span><span class="spacer"></span><button class="btn tiny ghost grow" data-grow="scriptPanel" title="Make this window big (Esc to go back)" aria-label="Expand"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M10 20H4v-6"/><path d="M20 4l-6.5 6.5"/><path d="M4 20l6.5-6.5"/></svg></button></div>
+        <div id="script" class="script"></div>
+      </div>
+      <div class="split v" data-var="--w-script" data-target="#scriptPanel" data-min="160" data-maxf="0.5" title="Drag to resize. Double-click to reset."></div>
+      <div class="panel" id="commentsPanel">
+        <div class="panel-head"><span class="kicker">Comments</span><span id="markCount" class="muted small"></span><span class="spacer"></span><button id="btnClearReel" class="btn tiny ghost">Clear this reel</button><button id="btnApprove" class="btn tiny approve">✓ Approve</button><button class="btn tiny ghost grow" data-grow="commentsPanel" title="Make this window big (Esc to go back)" aria-label="Expand"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M10 20H4v-6"/><path d="M20 4l-6.5 6.5"/><path d="M4 20l6.5-6.5"/></svg></button></div>
+        <div id="fixes" class="fixes" hidden></div>
+        <div id="marks" class="marks"></div>
+        <label class="reel-note"><span class="kicker">Notes</span>
+          <textarea id="reelNote" placeholder="Anything not tied to one moment"></textarea>
+        </label>
+      </div>
+    </section>
+
+    <div class="split h" data-var="--h-stage" data-target="#stage" data-min="220" data-maxf="0.8" data-axis="y" title="Drag to resize. Double-click to reset."></div>
+
+    <section class="panel" id="stPanel">
+      <div class="panel-head"><span class="kicker">Timeline</span><span class="spacer"></span><button class="btn tiny ghost grow" data-grow="stPanel" title="Make this window big (Esc to go back)" aria-label="Expand"><svg viewBox="0 0 24 24"><path d="M14 4h6v6"/><path d="M10 20H4v-6"/><path d="M20 4l-6.5 6.5"/><path d="M4 20l6.5-6.5"/></svg></button></div>
+      <div class="st-bar">
+        <button id="stUndo" class="btn tiny" title="Undo (Ctrl+Z)">↶ Undo</button>
+        <button id="stRedo" class="btn tiny" title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+        <button id="stRazor" class="btn tiny st-only-raw" title="Cut the clip under the playhead in two (C)">✂ Cut at playhead<kbd>C</kbd></button>
+        <span class="sep st-only-raw"></span>
+        <button id="stHideCuts" class="btn tiny st-only-raw" title="Hide the parts the autocut removed, so your clips sit back to back like the finished edit (H)">◨ Hide cuts</button>
+        <button id="stReset" class="btn tiny ghost st-only-raw">Reset all clips</button>
+        <span class="spacer"></span>
+        <span class="st-clock st-only-raw"><small>raw</small><span id="stClkRaw">0:00.00</span></span>
+        <span class="st-clock st-only-raw"><small>edit</small><span id="stClkEdit">0:00.00</span></span>
+        <div class="zoom">
+          <button id="stZoomOut" class="btn tiny icon" aria-label="Zoom out">−</button>
+          <button id="stFit" class="btn tiny">Fit</button>
+          <button id="stZoomIn" class="btn tiny icon" aria-label="Zoom in">+</button>
+        </div>
+      </div>
+      <div class="st-tl" id="stTl">
+        <div class="st-heads"><div class="st-h-ruler">SEC</div><div class="st-h-pins">PINS</div><div class="st-h-scenes">SCENE</div><div class="st-h-cuts">CUTS</div><div class="st-h-v1">V1</div><div class="st-h-a1">A1</div><div class="st-h-words">WORDS</div></div>
+        <div class="st-scroll" id="stScroll"><div class="st-inner" id="stInner">
+          <div class="st-lane st-ruler st-h-ruler" id="stRuler"></div>
+          <div class="st-lane st-h-pins" id="stPins"></div>
+          <div class="st-lane st-h-scenes" id="stScenes"></div>
+          <div class="st-lane st-h-cuts" id="stCuts"></div>
+          <div class="st-lane st-h-v1" id="stV1"></div>
+          <div class="st-lane st-h-a1"><canvas class="st-wave" id="stWave" height="52"></canvas></div>
+          <div class="st-lane st-h-words" id="stWords"></div>
+          <div id="stMkLines"></div>
+          <div class="st-ph" id="stPh"><button class="st-ph-add" id="stAdd" title="Mark something to add here (A)">+</button></div>
+        </div></div>
+      </div>
+      <details class="hints"><summary>Shortcuts</summary><kbd>Space</kbd> play · <kbd>C</kbd> cut clip in two · <kbd>A</kbd> or + on the playhead: mark something to add (drag for a span) · right-click a comment to remove it · drag an edge to trim · <kbd>Del</kbd> delete clip · <kbd>H</kbd> hide cuts · <kbd>R</kbd> raw footage · <kbd>Ctrl</kbd><kbd>Z</kbd> undo · <kbd>F</kbd> full screen · <kbd>D</kbd>/<kbd>S</kbd> speed · <kbd>P</kbd> play comment · <kbd>1</kbd>–<kbd>9</kbd> switch · click the picture to pin a comment</details>
+    </section>
+  </main>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+<div id="ctxMenu" class="ctxmenu" role="menu" hidden><button data-act="remove" role="menuitem">Remove</button></div>
+
+<script src="reels-data.js"></script>
+<script src="resolutions.js"></script>
+<script src="fixes.js"></script>
+<script src="approvals.js"></script>
+<script src="source-data.js"></script>
+<script src="editor-timeline.js"></script>
+<script>
+(function () {
+  const REELS = window.REELS || [];
+  const BATCH = window.REEL_BATCH || { name: 'reels', dir: '' };
+  if (BATCH.orientation === 'vertical') document.body.classList.add('portrait');
+  const STORE_KEY = 'rubric-editor';
+  const $ = id => document.getElementById(id);
+  const video = $('video'), rawV = $('stVideo'), ST = window.SrcTrim;
+
+  // ---------- state ----------
+  function blank() { return { version: 1, global: '', reels: {} }; }
+  function loadState() {
+    try { const s = JSON.parse(localStorage.getItem(STORE_KEY)); if (s && s.reels) return s; } catch (e) {}
+    return blank();
+  }
+  let state = loadState();
+  let cur = 0, selectedId = null, stopAt = null;
+  let saveTimer = null;
+
+  function reel() { return REELS[cur]; }
+  function rs(id) {
+    const key = id || reel().id;
+    if (!state.reels[key]) state.reels[key] = { note: '', marks: [] };
+    return state.reels[key];
+  }
+  function save() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => {
+      try {
+        localStorage.setItem(STORE_KEY, JSON.stringify(state));
+        $('saveState').textContent = 'Saved'; clearTimeout(window.__svT); window.__svT = setTimeout(() => { $('saveState').textContent = ''; }, 1500);
+      } catch (e) { $('saveState').textContent = 'Browser save failed'; }
+    }, 250);
+  }
+  const uid = () => Math.random().toString(36).slice(2, 9);
+  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  const f2 = t => (Math.round(t * 100) / 100).toFixed(2);
+
+  function toast(msg) {
+    const el = $('toast'); el.textContent = msg; el.hidden = false;
+    clearTimeout(toast.t); toast.t = setTimeout(() => { el.hidden = true; }, 2600);
+  }
+
+  // ---------- undo / redo: one history for comments, notes, clip edges and deleted clips ----------
+  const hist = { undo: [], redo: [] };
+  const snapNow = label => ({ label, cur, s: JSON.stringify(state), t: JSON.stringify(ST.state()) });
+  function paintHist() { $('stUndo').disabled = !hist.undo.length; $('stRedo').disabled = !hist.redo.length; }
+  function pushUndo(x) { hist.undo.push(x); if (hist.undo.length > 200) hist.undo.shift(); hist.redo.length = 0; paintHist(); }
+  const checkpoint = label => pushUndo(snapNow(label));
+  function applySnap(x) {
+    state = JSON.parse(x.s); ST.load(JSON.parse(x.t));
+    selectedId = null; save(); $('globalNote').value = state.global || '';
+    if (x.cur !== cur) selectReel(x.cur); else { $('reelNote').value = rs().note || ''; renderMarks(); }
+  }
+  function undo() { const x = hist.undo.pop(); if (!x) { toast('Nothing to undo'); return; } hist.redo.push(snapNow(x.label)); applySnap(x); paintHist(); toast('Undid: ' + x.label); }
+  function redo() { const x = hist.redo.pop(); if (!x) { toast('Nothing to redo'); return; } hist.undo.push(snapNow(x.label)); applySnap(x); paintHist(); toast('Redid: ' + x.label); }
+  ST.history = { snap: snapNow, push: pushUndo, undo, redo };
+  ST.notify = msg => toast(msg);
+  // typing in a note box: one undo step per visit to the box (inside the box, Ctrl+Z is the browser's own text undo)
+  let noteSnap = null;
+  document.addEventListener('focusin', e => { if ((e.target.tagName || '') === 'TEXTAREA') noteSnap = snapNow('edit a note'); });
+  function noteCheckpoint() { if (noteSnap) { pushUndo(noteSnap); noteSnap = null; } }
+
+  // ---------- derived ----------
+  const isPin = m => m.type === 'pin';
+  const isLayer = m => m.type === 'layer';   // a comment on one sound layer (music, effects) at one moment, from its lane
+  const isMark = m => m.type === 'pin' || m.type === 'add' || m.type === 'layer';   // add = "put something here", no spot on the picture
+  const mStart = m => isMark(m) ? m.t : m.start;
+  // a sound layer's label for a reel's comment ("Music", "SFX"), from that reel's own layers
+  function layerOf(r, id) { return (ST.layersOf(r) || []).find(l => l.id === id) || { id, name: id }; }
+  // the layer 2 clip (b-roll, title card) a pin was made on, by name, or '' for a pin on the main picture
+  function v2Of(r, m) { if (!isPin(m) || !m.v2) return ''; const o = (ST.overlaysOf(r) || []).find(o => o.id === m.v2); return (o && o.name) || m.v2; }
+  // a mark a later version has applied (resolutions.js): shows a badge, leaves the open list in the export
+  const RESOLVED = window.RESOLVED || {};
+  function resolution(reelId, m) {
+    const list = RESOLVED[reelId] || [];
+    return list.find(x => x.type === m.type && (isPin(m) || isLayer(m)
+      ? Math.abs(x.t - m.t) < 0.06 && (x.x == null || Math.abs(x.x - m.x) < 0.05) && (x.layer == null || x.layer === m.layer)
+      : Math.abs(x.start - m.start) < 0.06 && Math.abs(x.end - m.end) < 0.06)) || null;
+  }
+  // comments are pins on the picture; cuts and extends are made by dragging clip edges in the Raw footage panel.
+  // Cut / Extend marks left in older saves stay in storage but are not shown or exported.
+  function sortedMarks(id) { return rs(id).marks.filter(isMark).sort((a, b) => a.t - b.t); }
+  function wordsAround(r, t, pad) { pad = pad == null ? 0.8 : pad; return r.tokens.filter(w => w.e >= t - pad && w.s <= t + pad); }
+  function sceneAt(r, t) { return r.scenes.find(s => s.s <= t && t < s.e) || r.scenes[r.scenes.length - 1]; }
+  function areaLabel(x, y) {
+    const col = x < 1 / 3 ? 'left' : x > 2 / 3 ? 'right' : 'centre', row = y < 1 / 3 ? 'top' : y > 2 / 3 ? 'bottom' : 'middle';
+    if (row === 'middle') return col;
+    return col === 'centre' ? row : row + '-' + col;
+  }
+  function sceneLabel(s) {
+    let t = 'S' + s.n + ' ' + s.visual;
+    if (s.asset) t += ' ' + s.asset;
+    if (s.title) t += ' "' + s.title + '"';
+    return t;
+  }
+
+  // ---------- rail: one card per reel, versions (V1 original, V2, V3 remakes) as pills ----------
+  const GROUPS = [], groupOf = {};
+  REELS.forEach((r, i) => {
+    r.base = r.base || r.id; r.version = r.version || 'v1'; r.versionNote = r.versionNote || 'original';
+    let g = GROUPS.find(x => x.base === r.base);
+    if (!g) { g = { base: r.base, num: r.num, title: r.title, versions: [] }; GROUPS.push(g); }
+    g.versions.push(i); groupOf[i] = g;
+  });
+  GROUPS.forEach(g => g.versions.sort((a, b) => REELS[a].version.localeCompare(REELS[b].version, undefined, { numeric: true })));
+  // version picks live for this page load only: a fresh load always opens the newest version of a reel
+  const groupPick = {};
+  function saveVersions() {}
+  function pickedIndex(g) {
+    const i = g.versions.find(i => REELS[i].version === groupPick[g.base]);
+    return i != null ? i : g.versions[g.versions.length - 1];
+  }
+  function renderRail() {
+    const listEl = $('reelList'), keepTop = listEl.scrollTop;
+    listEl.innerHTML = GROUPS.map((g, gi) => {
+      const active = groupOf[cur] === g, shown = active ? cur : pickedIndex(g);
+      const r = REELS[shown];
+      // counts cover every version of the reel, so the card tells the whole story
+      let open = [], applied = 0, noted = false, sound = 0;
+      g.versions.forEach(i => { const s = state.reels[REELS[i].id]; if (!s) return;
+        s.marks.forEach(m => { if (isLayer(m) && !resolution(REELS[i].id, m)) sound++; if (!isPin(m)) return; if (resolution(REELS[i].id, m)) applied++; else open.push(m); });
+        if ((s.note || '').trim()) noted = true; });
+      const pins = open.length;
+      const bits = [r.duration.toFixed(1) + 's'];
+      if (pins) bits.push('📍 ' + pins);
+      if (sound) bits.push('♪ ' + sound);
+      if (applied) bits.push('✓ ' + applied + ' applied');
+      if (noted) bits.push('note');
+      const nt = ST.count(g.base);
+      if (nt) bits.push('⇆ ' + nt + (nt === 1 ? ' trim' : ' trims'));
+      const ok = approvalOf(g.base);
+      const okLine = ok ? '<div class="okline">✓ Approved' + (ok.version ? ' ' + esc(ok.version.toUpperCase()) : '') + '</div>' : '';
+      const pills = g.versions.length > 1
+        ? '<span class="vpills">' + g.versions.map(i => '<button class="vpill' + (i === shown ? ' on' : '') + '" data-i="' + i + '" title="' + esc(REELS[i].versionNote) + '">' + esc(REELS[i].version.toUpperCase()) + '</button>').join('') + '</span>'
+        : '';
+      return '<div class="reel-item' + (active ? ' on' : '') + (ok ? ' approved' : '') + '" role="button" tabindex="0" data-g="' + gi + '"><span class="num">' + esc(g.num) + '</span><span><div class="t">' + esc(g.title) + '</div>' + okLine + pills + '<div class="meta">' + bits.join(' · ') + '</div></span></div>';
+    }).join('');
+    listEl.scrollTop = keepTop;
+    renderApprove();
+    listEl.querySelectorAll('.vpills').forEach(p => { const on = p.querySelector('.vpill.on'); if (on) p.scrollLeft = Math.max(0, on.offsetLeft + on.offsetWidth - p.clientWidth + 2); });
+  }
+  ST.onChange = () => renderRail();
+  let pillDrag = null, pillDragged = false;
+  $('reelList').addEventListener('pointerdown', e => { const p = e.target.closest('.vpills'); if (!p || p.scrollWidth <= p.clientWidth) return; pillDrag = { p, x0: e.clientX, s0: p.scrollLeft }; pillDragged = false; });
+  window.addEventListener('pointermove', e => { if (!pillDrag) return; const dx = e.clientX - pillDrag.x0; if (Math.abs(dx) > 4) pillDragged = true; if (pillDragged) pillDrag.p.scrollLeft = pillDrag.s0 - dx; });
+  window.addEventListener('pointerup', () => { pillDrag = null; });
+  $('reelList').addEventListener('click', e => {
+    if (pillDragged) { pillDragged = false; return; }
+    const pill = e.target.closest('.vpill');
+    if (pill) { selectReel(+pill.dataset.i); return; }
+    const item = e.target.closest('.reel-item'); if (item) selectReel(pickedIndex(GROUPS[+item.dataset.g]));
+  });
+  $('reelList').addEventListener('keydown', e => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const item = e.target.closest('.reel-item'); if (!item) return;
+    e.preventDefault(); selectReel(pickedIndex(GROUPS[+item.dataset.g]));
+  });
+  function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+
+  // ---------- script ----------
+  let wordEls = [], nowIdx = -1;
+  function renderScript() {
+    const r = reel(); let html = '<p class="line">';
+    r.tokens.forEach((w, i) => {
+      html += '<span class="w" data-i="' + i + '" title="' + f2(w.s) + 's">' + esc(w.t) + '</span> ';
+      if (w.br && i < r.tokens.length - 1) html += '</p><p class="line">';
+    });
+    $('script').innerHTML = html + '</p>';
+    wordEls = Array.from($('script').querySelectorAll('.w'));
+    nowIdx = -1;
+  }
+  $('script').addEventListener('click', e => {
+    const w = e.target.closest('.w'); if (!w) return;
+    const sel = window.getSelection(); if (sel && !sel.isCollapsed) return;
+    seek(reel().tokens[+w.dataset.i].s);
+  });
+
+  // ---------- comments on the one timeline (the timeline itself lives in prototype-v2-timeline.js) ----------
+  // an ADD mark covers raw seconds [raw, rawEnd]; marks saved before spans existed have no rawEnd and load as a point
+  const addSpan = m => { const a = m.raw != null ? m.raw : null, b = m.rawEnd != null ? m.rawEnd : a; return a == null ? null : [a, Math.max(a, b)]; };
+  const isSpan = m => { const s = m.type === 'add' && addSpan(m); return !!s && s[1] - s[0] > 0.004; };
+  function renderMarkLayers() {
+    ST.setMarkers(sortedMarks().map((m, i) => ({ id: m.id, t: m.t, raw: m.raw, raw2: m.type === 'add' && addSpan(m) ? addSpan(m)[1] : null, kind: m.type, layer: m.layer, n: i + 1, sel: m.id === selectedId })));
+    renderPins(true);
+  }
+  let markerPre = null;
+  ST.onMarkerDown = id => { markerPre = snapNow('move a comment in time'); selectedId = id; ST.clearSelection(); renderMarkLayers(); renderMarkList(); showCard(id); };
+  ST.onMarkerMove = (id, t, raw) => { const m = rs().marks.find(x => x.id === id); if (!m) return; m.t = clamp(t, 0, reel().duration); if (m.type === 'add' && raw != null) m.raw = +raw.toFixed(3); video.currentTime = m.t; renderMarkLayers(); };
+  ST.onMarkerUp = (id, moved) => {
+    const m = rs().marks.find(x => x.id === id); if (!m) return; m.t = +m.t.toFixed(3);
+    // a pin moved in time is about whatever layer 2 shows at its new moment
+    if (moved && isPin(m)) { const ov = ST.overlayAt(m.t); if (ov) m.v2 = ov.id; else delete m.v2; }
+    if (moved) pushUndo(markerPre); else seek(m.t); save(); renderMarks();
+  };
+  // dragging an ADD mark's ends (or its middle) sets which raw seconds it covers; the timeline shows the raw frame meanwhile
+  ST.onAddSpan = (id, a, b, t) => { const m = rs().marks.find(x => x.id === id); if (!m) return; m.raw = +a.toFixed(3); m.rawEnd = +b.toFixed(3); m.t = clamp(t, 0, reel().duration); renderMarkLayers(); };
+  ST.onSeekReel = t => { video.currentTime = clamp(t, 0, reel().duration); stopAt = null; updatePlayhead(true); };
+  // + on the playhead / A: mark something to add at the playhead's raw time (can be inside removed footage). Dragging from
+  // the + marks a span of raw seconds instead; a plain click drops a point you can widen later.
+  ST.onAddMark = (raw, t, rawEnd) => {
+    const b = rawEnd != null ? Math.max(raw, rawEnd) : raw;
+    const m = { id: uid(), type: 'add', t: +clamp(t, 0, reel().duration).toFixed(3), raw: +raw.toFixed(3), rawEnd: +b.toFixed(3), note: '' };
+    checkpoint('mark something to add'); rs().marks.push(m); save();
+    selectedId = m.id; ST.clearSelection(); renderMarks(); showCard(m.id);
+    const ta = $('marks').querySelector('.mk[data-id="' + m.id + '"] textarea'); if (ta) ta.focus();
+  };
+  // a click in a sound lane (or A with a lane picked): a comment on that layer at that moment
+  ST.onLayerMark = (layer, t) => {
+    video.pause();
+    const m = { id: uid(), type: 'layer', layer, t: +clamp(t, 0, reel().duration).toFixed(3), note: '' };
+    checkpoint('add a comment on ' + layerOf(reel(), layer).name); rs().marks.push(m); save();
+    selectedId = m.id; ST.clearSelection(); renderMarks(); showCard(m.id);
+    const ta = $('marks').querySelector('.mk[data-id="' + m.id + '"] textarea'); if (ta) ta.focus();
+  };
+  ST.onSelectClip = () => { if (selectedId) { selectedId = null; renderMarkLayers(); renderMarkList(); } };
+  const FIXES = window.FIXES || {};
+  function fixesOf(r) { return FIXES[r.id] || []; }
+  let fixesOpen = false;
+  function renderFixes() {
+    const r = reel(), list = fixesOf(r), box = $('fixes');
+    if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
+    box.hidden = false;
+    box.innerHTML = '<button class="fixes-head" aria-expanded="' + fixesOpen + '"><span class="caret">▸</span>✓ Fixed in ' + esc(r.version.toUpperCase()) + '<span class="n">' + list.length + '</span></button>' +
+      '<div class="fixes-body"' + (fixesOpen ? '' : ' hidden') + '>' + list.map(f =>
+      '<button class="fix-item" data-t="' + f.t + '"><b>' + (f.t > 0 ? f2(f.t) + 's' : 'whole reel') + '</b> ' + esc(f.label) + '</button>'
+    ).join('') + '</div>';
+  }
+  $('fixes').addEventListener('click', e => { if (e.target.closest('.fixes-head')) { fixesOpen = !fixesOpen; renderFixes(); } });
+  $('fixes').addEventListener('click', e => { const b = e.target.closest('.fix-item'); if (b) seek(Math.max(0, +b.dataset.t - 0.8)); });
+
+  // ---------- pins on the picture ----------
+  const pinlayer = $('pinlayer');
+  let visiblePinKey = '', pinDrag = null, suppressClick = false;
+  function pinVisible(m, t) { return isPin(m) && t >= m.t - 0.35 && t <= m.t + 2.5; }
+  function renderPins(force) {
+    const t = video.currentTime || 0, marks = sortedMarks();
+    const vis = [];
+    marks.forEach((m, i) => { if (pinVisible(m, t) || (isPin(m) && m.id === selectedId)) vis.push(i); });
+    const key = vis.map(i => marks[i].id + ':' + marks[i].x + ',' + marks[i].y + (marks[i].id === selectedId ? '*' : '')).join('|');
+    if (!force && key === visiblePinKey) return;
+    visiblePinKey = key;
+    pinlayer.innerHTML = vis.map(i => {
+      const m = marks[i];
+      return '<div class="pin' + (m.id === selectedId ? ' sel' : '') + '" data-id="' + m.id + '" style="left:' + (m.x * 100) + '%;top:' + (m.y * 100) + '%" title="Pin ' + (i + 1) + ' at ' + f2(m.t) + 's">' + (i + 1) + '</div>';
+    }).join('');
+  }
+  function addPin(x, y) {
+    const m = { id: uid(), type: 'pin', t: +(video.currentTime || 0).toFixed(3), x: +x.toFixed(4), y: +y.toFixed(4), note: '' };
+    const ov = ST.overlayNow(); if (ov) m.v2 = ov.id;   // made while a layer 2 clip was on the picture: the comment is about it
+    checkpoint('add a comment');
+    rs().marks.push(m); save();
+    selectedId = m.id; ST.clearSelection(); renderMarks(); showCard(m.id);
+    const ta = $('marks').querySelector('.mk[data-id="' + m.id + '"] textarea'); if (ta) ta.focus();
+    return m;
+  }
+  pinlayer.addEventListener('pointerdown', e => {
+    if (e.button !== 0) return;
+    const el = e.target.closest('.pin'); if (!el) return;
+    const m = rs().marks.find(x => x.id === el.dataset.id); if (!m) return;
+    pinlayer.setPointerCapture(e.pointerId);
+    pinDrag = { m, el, moved: false, x0: e.clientX, y0: e.clientY, pre: snapNow('move a comment') };
+    e.preventDefault();
+  });
+  pinlayer.addEventListener('pointermove', e => {
+    if (!pinDrag) return;
+    if (Math.abs(e.clientX - pinDrag.x0) > 3 || Math.abs(e.clientY - pinDrag.y0) > 3) pinDrag.moved = true;
+    if (!pinDrag.moved) return;
+    const r = pinlayer.getBoundingClientRect();
+    pinDrag.m.x = clamp((e.clientX - r.left) / r.width, 0, 1); pinDrag.m.y = clamp((e.clientY - r.top) / r.height, 0, 1);
+    pinDrag.el.style.left = (pinDrag.m.x * 100) + '%'; pinDrag.el.style.top = (pinDrag.m.y * 100) + '%';
+  });
+  function endPinDrag() {
+    if (!pinDrag) return;
+    const d = pinDrag; pinDrag = null;
+    if (d.moved) { suppressClick = true; pushUndo(d.pre); d.m.x = +d.m.x.toFixed(4); d.m.y = +d.m.y.toFixed(4); save(); renderMarks(); }
+    else select(d.m.id, true);
+  }
+  pinlayer.addEventListener('pointerup', endPinDrag);
+  pinlayer.addEventListener('pointercancel', endPinDrag);
+  pinlayer.addEventListener('click', e => {
+    if (suppressClick) { suppressClick = false; return; }
+    if (e.target.closest('.pin') || !video.duration) return;
+    if (ST.view() === 'raw') { ST.backToReel(); toast('Back on the finished reel. Click the picture again to pin a comment.'); return; }
+    if (document.fullscreenElement) { ST.togglePlay(); return; }
+    const r = pinlayer.getBoundingClientRect();
+    video.pause();
+    addPin(clamp((e.clientX - r.left) / r.width, 0, 1), clamp((e.clientY - r.top) / r.height, 0, 1));
+  });
+
+  function renderMarkList() {
+    const r = reel(), marks = sortedMarks();
+    $('markCount').textContent = marks.length ? marks.length + (marks.length === 1 ? ' comment' : ' comments') : '';
+    if (!marks.length) {
+      $('marks').innerHTML = '<div class="empty">No comments yet.</div>';
+      return;
+    }
+    $('marks').innerHTML = marks.map((m, i) => {
+      const res = resolution(r.id, m);
+      const doneChip = res ? '<span class="chip applied" title="' + esc(res.how || '') + '">✓ Applied in ' + esc(res.in.toUpperCase()) + '</span>' : '';
+      const said = wordsAround(r, m.t).map(w => w.t).join(' '), sc = sceneAt(r, m.t);
+      const sp = isSpan(m) ? addSpan(m) : null, rawSaid = sp ? ST.rawWords(r, sp[0], sp[1]) : '';   // an ADD span names the raw words it covers
+      const ly = isLayer(m) ? layerOf(r, m.layer) : null;
+      return '<div class="mk' + (m.id === selectedId ? ' sel' : '') + (res ? ' done' : '') + '" data-id="' + m.id + '">' +
+        '<div class="mk-row"><span class="mk-n">' + (i + 1) + '</span>' +
+        (m.type === 'add' ? '<span class="chip kind-add">＋ Add here</span>' : ly ? '<span class="chip kind-layer" title="A comment on the ' + esc(ly.name) + ' layer only">♪ ' + esc(ly.name) + '</span>' : '<span class="chip kind-pin">📍 Pin</span>') + doneChip +
+        '<span class="mk-time">' + f2(m.t) + 's' + (isPin(m) ? ' · ' + areaLabel(m.x, m.y) : '') + '</span><span class="spacer"></span>' +
+        '<button class="btn tiny icon" data-act="play" title="Play around this moment (P)">▶</button>' +
+        '<button class="btn tiny icon" data-act="del" title="Delete (Del)">✕</button></div>' +
+        '<div class="mk-words">' + (sp ? '<span class="muted">Raw ' + f2(sp[0]) + '-' + f2(sp[1]) + 's:</span> ' + (rawSaid ? '“' + esc(rawSaid) + '”' : '<span class="muted">no words</span>')
+          : said ? '<span class="muted">Saying:</span> “' + esc(said) + '”' : '<span class="muted">Nothing spoken here</span>') + '</div>' +
+        '<div class="mk-scenes">' + esc(sc ? sceneLabel(sc) : '') + (v2Of(r, m) ? ' · on V2: ' + esc(v2Of(r, m)) : '') + '</div>' +
+        '<div class="mk-why">' + (m.type === 'add' ? 'What to add' : 'Your reasoning') + '</div>' +
+        '<textarea data-act="note" placeholder="' + (m.type === 'add' ? 'What should be added here?' : ly ? 'What should change in the ' + esc(ly.name) + ' here, and why?' : 'What is wrong at this spot, and why?') + '">' + esc(m.note || '') + '</textarea>' +
+        '</div>';
+    }).join('');
+  }
+  function renderMarks() { renderMarkLayers(); renderMarkList(); renderRail(); }
+
+  $('marks').addEventListener('click', e => {
+    const card = e.target.closest('.mk'); if (!card) return;
+    const m = rs().marks.find(x => x.id === card.dataset.id); if (!m) return;
+    const act = e.target.closest('[data-act]') && e.target.closest('[data-act]').dataset.act;
+    if (act === 'del') { deleteMark(m.id); return; }
+    if (act === 'play') { select(m.id, false); playMark(m); return; }
+    if (act === 'note') { if (selectedId !== m.id) { selectedId = m.id; renderMarkLayers(); card.parentElement.querySelectorAll('.mk').forEach(c => c.classList.toggle('sel', c === card)); } return; }
+    select(m.id, true);
+  });
+  $('marks').addEventListener('input', e => {
+    if (e.target.dataset.act !== 'note') return;
+    const card = e.target.closest('.mk'), m = rs().marks.find(x => x.id === card.dataset.id);
+    if (m) { noteCheckpoint(); m.note = e.target.value; save(); }
+  });
+
+  function showCard(id) {
+    const box = $('marks'), card = box.querySelector('.mk[data-id="' + id + '"]');
+    if (!card) return;
+    const top = card.offsetTop, bottom = top + card.offsetHeight;
+    if (top < box.scrollTop) box.scrollTop = top - 8;
+    else if (bottom > box.scrollTop + box.clientHeight) box.scrollTop = bottom - box.clientHeight + 8;
+  }
+  function select(id, seekTo) {
+    selectedId = id; ST.clearSelection();
+    const m = rs().marks.find(x => x.id === id);
+    if (m && seekTo) seek(mStart(m));
+    renderMarkLayers(); renderMarkList();
+    showCard(id);
+  }
+  function deleteMark(id) {
+    checkpoint('delete a comment');
+    const s = rs(); s.marks = s.marks.filter(m => m.id !== id);
+    if (selectedId === id) selectedId = null;
+    save(); renderMarks();
+  }
+  // right-click a PIN or an ADD mark (on the timeline or on the picture): a small menu with Remove
+  let menuFor = null;
+  function menuOpen() { return !$('ctxMenu').hidden; }
+  function hideMenu() { $('ctxMenu').hidden = true; menuFor = null; }
+  function showMenu(id, x, y) {
+    if (!rs().marks.some(m => m.id === id)) return;
+    selectedId = id; ST.clearSelection(); renderMarkLayers(); renderMarkList(); showCard(id);
+    const el = $('ctxMenu'); menuFor = id; el.hidden = false;
+    el.style.left = Math.max(4, Math.min(x, innerWidth - el.offsetWidth - 8)) + 'px';
+    el.style.top = Math.max(4, Math.min(y, innerHeight - el.offsetHeight - 8)) + 'px';
+    el.querySelector('button').focus();
+  }
+  ST.onMarkerContext = (id, x, y) => showMenu(id, x, y);
+  pinlayer.addEventListener('contextmenu', e => { const el = e.target.closest('.pin'); if (!el) return; e.preventDefault(); showMenu(el.dataset.id, e.clientX, e.clientY); });
+  $('ctxMenu').addEventListener('click', e => { const b = e.target.closest('[data-act]'), id = menuFor; if (!b || !id) return; hideMenu(); if (b.dataset.act === 'remove') deleteMark(id); });
+  $('ctxMenu').addEventListener('contextmenu', e => e.preventDefault());
+  document.addEventListener('pointerdown', e => { if (menuOpen() && !e.target.closest('#ctxMenu')) hideMenu(); }, true);
+  window.addEventListener('blur', hideMenu); window.addEventListener('resize', hideMenu);
+  $('stScroll').addEventListener('scroll', () => { if (menuOpen()) hideMenu(); });
+  function playMark(m) {
+    ST.stopAll(); seek(Math.max(0, m.t - 1)); stopAt = Math.min(reel().duration, m.t + 2);
+    video.play();
+  }
+
+  // ---------- playback ----------
+  function seek(t) {
+    const again = ST.planOn(); if (again) ST.stopAll();
+    video.currentTime = clamp(t, 0, reel().duration);
+    stopAt = null; ST.follow('reel');
+    if (again) ST.togglePlay();
+    updatePlayhead(true);
+  }
+  function currentWord(t) {
+    const w = reel().tokens; let lo = 0, hi = w.length - 1, ans = -1;
+    while (lo <= hi) { const mid = (lo + hi) >> 1; if (w[mid].s <= t) { ans = mid; lo = mid + 1; } else hi = mid - 1; }
+    if (ans >= 0 && t > w[ans].e + 0.25) return -1;
+    return ans;
+  }
+  function updatePlayhead(force) {
+    const r = reel(); if (!r) return;
+    const rawView = ST.view() === 'raw', t = rawView ? ST.reelTimeNow() : (video.currentTime || 0);
+    if (rawView || (ST.planOn() && ST.hasChanges())) { const c = ST.editClock(); $('timecode').textContent = $('fsTime').textContent = f2(c.t) + ' / ' + f2(c.len) + 's ' + (c.mode === 'raw' ? 'raw' : 'new edit'); }
+    else $('timecode').textContent = $('fsTime').textContent = f2(t) + ' / ' + f2(r.duration) + 's';
+    const idx = currentWord(t);
+    if (idx !== nowIdx || force) {
+      if (wordEls[nowIdx]) wordEls[nowIdx].classList.remove('now');
+      nowIdx = idx;
+      if (wordEls[idx]) {
+        wordEls[idx].classList.add('now');
+        if (!video.paused) {
+          const box = $('script'), el = wordEls[idx];
+          if (el.offsetTop < box.scrollTop || el.offsetTop > box.scrollTop + box.clientHeight - 40) box.scrollTop = el.offsetTop - 40;
+        }
+      }
+    }
+    renderPins(false);
+  }
+  // ---------- playback speed (D faster, S slower, 10% steps) ----------
+  let rate = 1;
+  try { rate = clamp(parseFloat(localStorage.getItem(STORE_KEY + ':rate')) || 1, 0.5, 3); } catch (e) {}
+  // The page owns the speed: every video or audio on it plays at the speed on the button, including ones added or reloaded
+  // later (layer 2 clips, a new section's footage). The Video Speed Controller browser extension uses the
+  // same S / D / R keys and gives each video back its own remembered speed on play and seek, so 1x on the button once
+  // played at 2x after R (seen on a real course review). Two guards, both on window so they run before an extension's document ones:
+  // the editor's S, D, R and V never reach the page's other key listeners (it handles them itself), and any outside speed
+  // change is set back. Layer 2 clips are nudged up to 10% on purpose to stay in step, so they get that much room.
+  // If something keeps fighting (an extension forcing its own speed), the button shows the speed you really hear.
+  function holdRate(el) {
+    if (!(el instanceof HTMLMediaElement)) return;
+    const ov = el.classList.contains('st-ovv');
+    if (Math.abs(el.defaultPlaybackRate - rate) > .001) el.defaultPlaybackRate = rate;
+    if (ov ? Math.abs(el.playbackRate / rate - 1) <= .11 : Math.abs(el.playbackRate - rate) <= .001) return;
+    const now = performance.now(), f = el.__rateFix = (el.__rateFix || []).filter(t => now - t < 1000);
+    if (now < (el.__rateQuiet || 0)) { if (!ov && (el === video || !el.paused)) paintRate(el.playbackRate); return; }
+    if (f.length >= 6) {   // a fight: stop it for 3 s, and let the button show the speed you hear
+      el.__rateQuiet = now + 3000;
+      if (!ov) { if (el === video || !el.paused) paintRate(el.playbackRate); if (!holdRate.told) { holdRate.told = true; toast('A browser extension keeps changing the speed. Turn it off for this site to use S and D.'); } }
+      return;
+    }
+    f.push(now); el.playbackRate = rate;
+  }
+  function applyRate() { document.querySelectorAll('video,audio').forEach(el => { el.__rateQuiet = 0; el.defaultPlaybackRate = rate; el.playbackRate = rate; }); }
+  ['ratechange', 'play', 'playing', 'seeked', 'loadedmetadata'].forEach(ev => window.addEventListener(ev, e => holdRate(e.target), true));
+  function setRate(v) { paintRate(v); applyRate(); }
+  function paintRate(v) {
+    rate = clamp(Math.round(v * 10) / 10, 0.5, 3);
+    $('btnSpeed').textContent = rate.toFixed(1) + 'x';
+    $('btnSpeed').classList.toggle('primary', Math.abs(rate - 1) > 0.01);
+    $('speedRange').value = String(rate);
+    try { localStorage.setItem(STORE_KEY + ':rate', String(rate)); } catch (e) {}
+  }
+  // click 1.0x: a slider on the same speed steps; click outside or Esc closes it
+  function speedOpen() { return !$('speedPop').hidden; }
+  function showSpeed(on) { $('speedPop').hidden = !on; $('btnSpeed').setAttribute('aria-expanded', on ? 'true' : 'false'); }
+  $('btnSpeed').addEventListener('click', () => showSpeed(!speedOpen()));
+  $('speedRange').addEventListener('input', e => setRate(parseFloat(e.target.value)));
+  document.addEventListener('pointerdown', e => { if (speedOpen() && !e.target.closest('.speedwrap')) showSpeed(false); }, true);
+  $('btnPlay').addEventListener('click', () => ST.togglePlay());
+  // one Mute for everything you hear: the reel, the raw recording and any sound layers (the timeline owns the players)
+  let muted = false;
+  $('btnMute').addEventListener('click', () => { muted = !muted; ST.setMuted(muted); $('btnMute').textContent = muted ? '🔇' : '🔊'; });
+  let playLbl = null;
+  function paintPlay() { const p = ST.isPlaying(); if (p === playLbl) return; playLbl = p; $('btnPlay').innerHTML = p ? '⏸ Pause<kbd>Space</kbd>' : '▶ Play<kbd>Space</kbd>'; $('fsPlay').textContent = p ? '⏸ Pause' : '▶ Play'; }
+  // full screen: the whole preview box goes big, so pins stay on their spots
+  function toggleFull() { if (document.fullscreenElement) document.exitFullscreen(); else if ($('vframe').requestFullscreen) $('vframe').requestFullscreen(); }
+  $('btnFull').addEventListener('click', toggleFull); $('fsExit').addEventListener('click', toggleFull);
+  $('fsPlay').addEventListener('click', () => ST.togglePlay());
+  (function loop() {
+    if (stopAt != null && !video.paused && video.currentTime >= stopAt) { video.pause(); video.currentTime = stopAt; stopAt = null; }
+    paintPlay();
+    if (ST.isPlaying()) updatePlayhead(false);
+    requestAnimationFrame(loop);
+  })();
+  video.addEventListener('seeked', () => updatePlayhead(false));
+  video.addEventListener('pause', () => updatePlayhead(false));
+
+  // ---------- reel switching ----------
+  function selectReel(i) {
+    if (i < 0 || i >= REELS.length) return;
+    video.pause();
+    cur = i; selectedId = null; stopAt = null;
+    const r = reel();
+    video.src = r.video; video.poster = r.poster;
+    applyRate(); requestAnimationFrame(applyRate);
+    groupPick[r.base] = r.version; saveVersions();
+    renderRail(); renderScript();
+    $('reelNote').value = rs().note || '';
+    ST.show(r); renderMarkLayers(); renderFixes(); renderMarkList(); updatePlayhead(true);
+    const onCard = $('reelList').querySelector('.reel-item.on'); if (onCard) onCard.scrollIntoView({ block: 'nearest' });
+    try { localStorage.setItem(STORE_KEY + ':cur', String(i)); } catch (e) {}
+  }
+  $('reelNote').addEventListener('input', e => { noteCheckpoint(); rs().note = e.target.value; save(); });
+  $('reelNote').addEventListener('change', () => renderRail());
+  $('globalNote').addEventListener('input', e => { noteCheckpoint(); state.global = e.target.value; save(); });
+
+  // ---------- toolbar ----------
+  $('btnClearReel').addEventListener('click', () => {
+    const isComment = m => isPin(m) || isLayer(m);
+    const s = rs(), n = s.marks.filter(isComment).length; if (!n) return;
+    if (!confirm('Delete all ' + n + ' comments on this reel?')) return;
+    checkpoint('clear the comments on this reel');
+    s.marks = s.marks.filter(m => !isComment(m)); selectedId = null; save(); renderMarks();
+  });
+
+  // ---------- approve: you sign a clip off at the version on screen. Your click beats approvals.js;
+  // Copy comments carries it so the agent knows to leave that clip alone. ----------
+  function approvalOf(base) {
+    const s = (state.approvals || {})[base];
+    if (s) return s.off ? null : s;
+    return (window.APPROVED || {})[base] || null;
+  }
+  const sameV = (a, r) => !a.version || a.version.toLowerCase() === r.version.toLowerCase();
+  function statusOf(r) {
+    const a = approvalOf(r.base); if (!a) return 'NOT APPROVED';
+    const s = 'APPROVED' + (a.version ? ' ' + a.version.toUpperCase() : '') + (a.date ? ' (' + a.date + ')' : '');
+    return sameV(a, r) ? s : s + ' - this export is ' + r.version.toUpperCase() + ', which is not approved';
+  }
+  function renderApprove() {
+    const r = reel(); if (!r) return;
+    const a = approvalOf(r.base), on = !!a && sameV(a, r), b = $('btnApprove');
+    b.classList.toggle('on', on);
+    b.textContent = on ? '✓ Approved' + (a.version ? ' ' + a.version.toUpperCase() : '') : '✓ Approve ' + r.version.toUpperCase();
+    b.title = on ? 'Approved' + (a.date ? ' on ' + a.date : '') + '. Click to take the approval back.'
+      : a ? a.version.toUpperCase() + ' is approved. Click to approve ' + r.version.toUpperCase() + ' instead.'
+      : 'Mark ' + r.version.toUpperCase() + ' as approved. It goes into Copy comments.';
+  }
+  $('btnApprove').addEventListener('click', () => {
+    const r = reel(), a = approvalOf(r.base), on = !!a && sameV(a, r), today = new Date().toLocaleDateString('en-CA');
+    checkpoint((on ? 'take back the approval on ' : 'approve ') + r.num + ' ' + r.version.toUpperCase());
+    if (!state.approvals) state.approvals = {};
+    state.approvals[r.base] = on ? { off: true, date: today } : { version: r.version, date: today };
+    save(); renderRail();
+    toast(on ? 'Approval taken back on ' + r.num + ' ' + r.version.toUpperCase() + '.' : 'Approved ' + r.num + ' ' + r.version.toUpperCase() + '. It goes into Copy comments.');
+  });
+
+  // R ticks the Raw footage box exactly as a click does: the same change event, so Play, the saved choice and the stop all follow
+  function toggleRaw() {
+    const box = $('stRawToggle');
+    if (!box || document.body.classList.contains('no-raw')) { toast('No raw footage on this clip'); return; }
+    box.checked = !box.checked;
+    box.dispatchEvent(new Event('change', { bubbles: true }));
+    toast(box.checked ? 'Raw footage on' : 'Raw footage off');
+  }
+  // B clicks the eye on the V2 lane head exactly as a mouse does, so the lane, the picture and the export all follow
+  function toggleV2() {
+    const eye = $('stV2Eye');
+    if (!eye) { if (hasV2()) toast('No layer 2 on this clip'); return; }
+    eye.click();
+    toast(ST.v2On() ? 'Layer 2 on' : 'Layer 2 off');
+  }
+
+  // ---------- keyboard ----------
+  // S, D, R and V are this page's (speed, Raw footage, versions), and a speed extension in the browser reads the same
+  // keys: they are handled here, on window, before any document listener, and go no further (see holdRate above)
+  window.addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey || !/^[sdrvSDRV]$/.test(e.key)) return;
+    const tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'textarea' || tag === 'select' || e.target.isContentEditable || (tag === 'input' && !/^(checkbox|radio|button|range)$/.test(e.target.type))) return;
+    e.stopPropagation(); onKey(e);
+  }, true);
+  document.addEventListener('keydown', onKey);
+  function onKey(e) {
+    const tag = (e.target.tagName || '').toLowerCase();
+    // only boxes you type in keep their keys; a ticked checkbox or a clicked button must not swallow Ctrl+Z or Space
+    const typing = tag === 'textarea' || e.target.isContentEditable || (tag === 'input' && !/^(checkbox|radio|button|range)$/.test(e.target.type));
+    if (typing) return;
+    const k = e.key;
+    if (k === 'Escape' && (speedOpen() || menuOpen() || exportOpen())) { showSpeed(false); hideMenu(); showExport(false); return; }
+    if (k === 'Escape' && grown && !document.fullscreenElement) { unGrow(); return; }
+    if (tag === 'input' && e.target.type === 'range' && /^Arrow|^(Home|End|PageUp|PageDown)$/.test(k)) return;   // the speed slider moves itself
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'z' || k === 'Z')) { e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (k === 'y' || k === 'Y')) { e.preventDefault(); redo(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (tag === 'video' && (k === ' ' || k === 'ArrowLeft' || k === 'ArrowRight')) return;
+    if (k === ' ') {
+      e.preventDefault();
+      // Space plays your edit as it stands (or the raw recording when Raw footage is ticked), or stops whatever plays
+      ST.togglePlay();
+      return;
+    }
+    if (k === 'f' || k === 'F') { toggleFull(); return; }
+    if (k === 'h' || k === 'H') { ST.toggleCuts(); return; }
+    if (k === 'r' || k === 'R') { toggleRaw(); return; }
+    if (k === 'b' || k === 'B') { toggleV2(); return; }
+    if (k === 'c' || k === 'C') { ST.razor(); return; }
+    if (k === 'a' || k === 'A') { ST.addMark(); return; }
+    if (k === 'd' || k === 'D') { setRate(rate + 0.1); return; }
+    if (k === 's' || k === 'S') { setRate(rate - 0.1); return; }
+    if (k === 'p' || k === 'P') {
+      const m = rs().marks.find(x => x.id === selectedId);
+      if (m) playMark(m); else toast('Select a comment first');
+      return;
+    }
+    if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); if (selectedId) deleteMark(selectedId); else if (ST.hasSelection()) ST.deleteSelected(); return; }
+    if (k === 'ArrowLeft' || k === 'ArrowRight') {
+      e.preventDefault();
+      seek(video.currentTime + (k === 'ArrowLeft' ? -1 : 1) * (e.shiftKey ? 1 : 0.1));
+      return;
+    }
+    if (k === 'Escape') { selectedId = null; ST.clearSelection(); ST.selectLayer(null); renderMarkLayers(); renderMarkList(); return; }
+    if (k === '+' || k === '=') { ST.zoomBy(1.4); return; }
+    if (k === '-') { ST.zoomBy(1 / 1.4); return; }
+    if (k === 'v' || k === 'V') { const g = groupOf[cur]; if (g.versions.length > 1) selectReel(g.versions[(g.versions.indexOf(cur) + 1) % g.versions.length]); return; }
+    if (/^[1-9]$/.test(k) && +k <= GROUPS.length) { selectReel(pickedIndex(GROUPS[+k - 1])); }
+  }
+
+  // ---------- export ----------
+  function buildMarkdown(scope) {
+    // scope 'current' = the clip and version on screen (Copy comments for this clip); 'all' = every clip and version
+    const now = new Date();
+    let total = 0; const skipped = [], body = [], applied = [], order = [];
+    const openOf = i => sortedMarks(REELS[i].id).filter(m => !resolution(REELS[i].id, m));
+    // trims belong to the section, not a version: they print once, under the version on screen (or the newest one for Copy comments for ALL clips)
+    const trimsOf = i => (i === (scope === 'current' ? cur : groupOf[i].versions[groupOf[i].versions.length - 1])) ? ST.markdown(REELS[i].base) : null;
+    const noteOf = i => ((state.reels[REELS[i].id] || {}).note || '').trim();
+    const withFeedback = i => !!(openOf(i).length || noteOf(i) || trimsOf(i));
+    const groups = scope === 'current' ? [groupOf[cur]] : GROUPS;
+    groups.forEach(g => {
+      const list = scope === 'current' ? [cur] : g.versions, vs = scope === 'current' ? [cur] : list.filter(withFeedback);
+      if (vs.length) order.push(...vs); else skipped.push(g.num);
+      list.forEach(i => sortedMarks(REELS[i].id).forEach(m => { const res = resolution(REELS[i].id, m);
+        if (res) applied.push(REELS[i].num + ' ' + REELS[i].version.toUpperCase() + (isLayer(m) ? ' [' + layerOf(REELS[i], m.layer).name.toUpperCase() + '] ' : ' PIN ') + f2(m.t) + 's -> applied in ' + res.in.toUpperCase() + (res.how ? ' (' + res.how + ')' : '')); }));
+    });
+    order.forEach(i => {
+      const r = REELS[i], pins = openOf(i), tr = trimsOf(i);
+      body.push('## ' + r.num + ' ' + r.title + ' - ' + r.version.toUpperCase() + (r.remake ? ' (' + r.versionNote + ')' : '') + ' (' + r.duration.toFixed(1) + 's)');
+      body.push('File: ' + (r.fullVideo || r.folder));
+      if (scope === 'current') body.push('Status: ' + statusOf(r));
+      if (tr) { body.push(...tr.lines); total += tr.count; }
+      if (noteOf(i)) body.push('Overall: ' + noteOf(i));
+      pins.forEach((m, k) => {
+        const said = wordsAround(r, m.t).map(w => w.t).join(' '), sc = sceneAt(r, m.t), sp = isSpan(m) ? addSpan(m) : null, ly = isLayer(m) ? layerOf(r, m.layer) : null;
+        // a sound layer comment leads with the layer's name, so the agent changes that layer only
+        if (ly) body.push((k + 1) + '. [' + ly.name.toUpperCase() + '] ' + f2(m.t) + 's of the reel, on the ' + ly.name + ' layer only' + (ly.file || ly.src ? ' (' + (ly.file || ly.src) + ')' : ''));
+        else body.push(m.type === 'add'
+          ? (sp ? (k + 1) + '. ADD raw ' + f2(sp[0]) + 's to ' + f2(sp[1]) + 's (' + f2(sp[1] - sp[0]) + ' s), at ' + f2(m.t) + 's of the reel'
+            : (k + 1) + '. ADD at ' + f2(m.t) + 's of the reel (raw ' + (m.raw != null ? f2(m.raw) + 's' : '-') + '): add something here')
+          : (k + 1) + '. PIN ' + f2(m.t) + 's at ' + areaLabel(m.x, m.y) + ' of the frame (x ' + Math.round(m.x * 100) + '%, y ' + Math.round(m.y * 100) + '% from top-left)');
+        if (sp) { const rw = ST.rawWords(r, sp[0], sp[1]); body.push('   Raw words: ' + (rw ? '"' + rw + '"' : '(no words, only the pause)') + (ST.rawUnchecked(r, sp[0], sp[1]) ? ST.UNCHECKED : '')); }
+        body.push('   Saying: ' + (said ? '"' + said + '"' : '(nothing spoken here)'));
+        body.push('   Scene: ' + (sc ? sceneLabel(sc) + ' [' + sc.layout + ', ' + f2(sc.s) + '-' + f2(sc.e) + 's]' : '-') + (v2Of(r, m) ? ' [V2: ' + v2Of(r, m) + ']' : ''));
+        body.push((m.type === 'add' ? '   What: ' : '   Why: ') + (ly ? '[' + ly.name.toUpperCase() + '] ' : '') + ((m.note || '').trim() || '-'));
+      });
+      if (scope === 'current' && !tr && !noteOf(i) && !pins.length) body.push('No open comments, notes or trims.');
+      total += pins.length;
+      body.push('');
+    });
+    const out = [
+      '# Claude Video Editor feedback - ' + (scope === 'current' ? reel().num + ' ' + reel().title + ' ' + reel().version.toUpperCase() : BATCH.name),
+      'Exported ' + now.toLocaleString('en-AU') + ' · ' + total + ' open items' + (scope === 'current' ? ' on this version' : ''),
+      'Project: ' + BATCH.dir,
+      'Key: APPROVED = I signed this clip off at that version, leave it as it is unless a line below asks for a change; NOT APPROVED = still in review. Source trims = changes made on the raw recording: EXTEND brings back footage the cut removed, TRIM removes more, DELETE drops a whole kept part; apply them by replacing the clip\'s kept ranges with the new list under them and re-cutting the clip. ADD = something to add at that spot of the clip; "ADD raw Xs to Ys" marks the seconds of the raw recording it covers. PIN = a comment about one spot of the picture at that moment. Scene numbers start at 1.' + soundKey() + v2Key(),
+      ''
+    ];
+    if (scope === 'all') out.push('## Approval status', ...GROUPS.map(g => '- ' + g.num + ' ' + g.title + ': ' + statusOf(REELS[pickedIndex(g)])), '');
+    if ((state.global || '').trim()) out.push('## Across all reels', state.global.trim(), '');
+    out.push(...body);
+    if (skipped.length) out.push('No open feedback on: ' + skipped.join(', '));
+    if (applied.length) out.push('', 'Already applied (not open): ', ...applied.map(a => '- ' + a));
+    out.push('', '## For my agent',
+      teach.cut ? '- Teach my /cut: after you apply these, fold what they say about how I like my cuts (what to keep, what to trim, pacing) into my /cut skill, so the next cut needs fewer fixes.'
+                : '- Leave my /cut skill as it is this time.',
+      teach.animate ? '- Teach my /animate: fold what these comments say about how I like my animations (layout, motion, timing, text) into my /animate skill, so the next one needs fewer fixes.'
+                    : '- Leave my /animate skill as it is this time.');
+    // FX and SFX lanes (fx-lanes.js): the effects and sounds placed on each clip go in before the notes for the agent
+    if (window.RubricFX) {
+      const fx = window.RubricFX.markdown(scope === 'current' ? [reel()] : GROUPS.map(g => REELS[pickedIndex(g)]));
+      if (fx.lines.length) { const at = out.indexOf('## For my agent'); out.splice(at < 0 ? out.length : at - 1, 0, '', ...fx.lines); total += fx.count; }
+    }
+    return { text: out.join('\n'), total };
+  }
+  // batches with sound layers explain the [LAYER] lines once, in the status line; every other batch exports exactly as before
+  function soundKey() {
+    const names = [...new Set(REELS.flatMap(r => (ST.layersOf(r) || []).map(l => '[' + String(l.name || l.id).toUpperCase() + ']')))];
+    return names.length ? ' ' + names.join(', ') + ' = a comment on that sound layer only (the file named on the line), at that moment of the reel; change that layer and leave the others as they are.' : '';
+  }
+  // batches with layer 2 clips explain the [V2: ...] tag once; every other batch exports exactly as before
+  const hasV2 = () => REELS.some(r => (ST.overlaysOf(r) || []).length);
+  function v2Key() {
+    return hasV2() ? ' [V2: name] at the end of a Scene line = the pin was made while that layer 2 clip (b-roll or a title card over the main video) was on screen, so the comment is about that clip, not the footage under it.' : '';
+  }
+  window.buildMarkdown = buildMarkdown;
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {
+      const ta = document.createElement('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      let ok = false; try { ok = document.execCommand('copy'); } catch (e2) {} ta.remove(); return ok;
+    }
+  }
+  $('btnCopy').addEventListener('click', async () => {
+    const { text, total } = buildMarkdown('current');
+    const ok = await copyText(text);
+    toast(ok ? 'Copied ' + total + ' open items on ' + reel().num + ' ' + reel().version.toUpperCase() + '. Paste them to your agent.' : 'Copy failed. Click the page once and try again.');
+  });
+  $('btnCopyAll').addEventListener('click', async () => {
+    const { text, total } = buildMarkdown('all');
+    const ok = await copyText(text);
+    toast(ok ? 'Copied ' + total + ' open items across all clips.' : 'Copy failed. Click the page once and try again.');
+  });
+
+  // ---------- Teach my /cut and Teach my /animate (both on by default): saved with the project under STORE_KEY:teach,
+  // outside the undo history, and written into the "For my agent" lines of every Copy comments ----------
+  const TEACH_KEY = STORE_KEY + ':teach';
+  var teach = { cut: true, animate: true };
+  try { const t = JSON.parse(localStorage.getItem(TEACH_KEY) || 'null'); if (t) teach = { cut: t.cut !== false, animate: t.animate !== false }; } catch (e) {}
+  function paintTeach() { $('teachCut').setAttribute('aria-checked', teach.cut ? 'true' : 'false'); $('teachAnim').setAttribute('aria-checked', teach.animate ? 'true' : 'false'); }
+  function flipTeach(which, btn) {
+    teach[which] = !teach[which]; paintTeach(); btn.blur();
+    try { localStorage.setItem(TEACH_KEY, JSON.stringify(teach)); } catch (e) {}
+    const skill = which === 'cut' ? '/cut' : '/animate';
+    toast(teach[which] ? 'Your agent will also teach your ' + skill + ' skill from these comments.' : 'Your ' + skill + ' skill stays as it is this time.');
+  }
+  $('teachCut').addEventListener('click', e => flipTeach('cut', e.currentTarget));
+  $('teachAnim').addEventListener('click', e => flipTeach('animate', e.currentTarget));
+  paintTeach();
+
+  // ---------- make any window big: it fills the page under the header until Esc or its button again ----------
+  let grown = null;
+  const relayout = () => window.dispatchEvent(new Event('resize'));   // the timeline and waveform redraw at the new size
+  function unGrow() { if (!grown) return; grown.classList.remove('grown'); grown = null; relayout(); }
+  document.querySelectorAll('[data-grow]').forEach(b => b.addEventListener('click', () => {
+    const p = $(b.dataset.grow), was = grown === p; b.blur(); unGrow(); if (was) return;
+    document.documentElement.style.setProperty('--grow-top', Math.round(document.querySelector('header.top').getBoundingClientRect().bottom + 10) + 'px');
+    p.classList.add('grown'); grown = p; relayout();
+  }));
+
+  // ---------- Export: a size, then this clip or all. The editor renders nothing itself: it saves the request with the
+  // project (STORE_KEY:export, which the app writes to rubric-state.json) and copies a one-line ask, the way Copy comments
+  // hands over notes. Your agent renders it with tools/render-export.mjs from the raw recording and the
+  // trims in the request; a reel with no raw footage renders from its own finished video. ----------
+  const EXPORT_KEY = STORE_KEY + ':export';
+  const SIZES = { vertical: [[720, 1280], [1080, 1920], [1440, 2560]], landscape: [[1280, 720], [1920, 1080], [2560, 1440]] };
+  let expTier = 1; try { const t = localStorage.getItem('rubric-export-tier'); if (/^[012]$/.test(t || '')) expTier = +t; } catch (e) {}
+  const APPC = window.__RUBRIC_APP || null;
+  function projectId() {
+    if (APPC && APPC.project) return APPC.project;
+    const parts = decodeURIComponent(location.pathname).split('/').filter(Boolean);
+    if (/\.html?$/i.test(parts[parts.length - 1] || '')) parts.pop();
+    return parts.pop() || BATCH.name;
+  }
+  // the project's format: rubric.json "orientation" (the app passes it in), then the batch, then the clip's own picture
+  function orientation() {
+    const o = (APPC && APPC.orientation) || BATCH.orientation;
+    if (o === 'vertical' || o === 'landscape') return o;
+    return video.videoHeight > video.videoWidth ? 'vertical' : 'landscape';
+  }
+  function exportOpen() { return !$('exportPop').hidden; }
+  function showExport(on) {
+    if (on) paintExport();
+    $('exportPop').hidden = !on; $('btnExport').setAttribute('aria-expanded', on ? 'true' : 'false');
+  }
+  function paintExport() {
+    $('exportSizes').innerHTML = SIZES[orientation()].map(([w, h], i) => '<button type="button" role="menuitemradio" aria-checked="' + (i === expTier) + '" data-tier="' + i + '"' + (i === expTier ? ' class="on"' : '') + '>' + w + 'x' + h + '<small>' + Math.min(w, h) + 'p</small></button>').join('');
+    $('expClipNum').textContent = reel().num; $('expAllNum').textContent = GROUPS.length;
+  }
+  // the version Render all takes for each clip: the approved one, else the newest
+  function exportIndex(g) {
+    const a = approvalOf(g.base), hit = a && a.version ? g.versions.find(i => REELS[i].version.toLowerCase() === a.version.toLowerCase()) : null;
+    return hit != null ? hit : g.versions[g.versions.length - 1];
+  }
+  function exportClip(i) {
+    const r = REELS[i], x = ST.exportOf(r.base), a = approvalOf(r.base);
+    return { id: r.id, base: r.base, num: r.num, title: r.title, version: r.version, duration: r.duration,
+      video: r.video, fullVideo: r.fullVideo || null, folder: r.folder || null,
+      source: x ? x.source : null, t0: x ? x.t0 : null, t1: x ? x.t1 : null, keeps: x ? x.keeps : null, autocut: x ? x.autocut : null, trims: x ? x.trims : 0,
+      approval: a ? { version: a.version || null, date: a.date || null, onThisVersion: sameV(a, r) } : null };
+  }
+  async function requestExport(scope) {
+    const o = orientation(), [w, h] = SIZES[o][expTier], proj = projectId(), id = uid();
+    const clips = (scope === 'clip' ? [cur] : GROUPS.map(exportIndex)).map(exportClip);
+    const what = scope === 'clip' ? 'clip ' + clips[0].num : 'all ' + clips.length + ' clips';
+    const ask = 'Render ' + what + ' of ' + proj + ' at ' + w + 'x' + h + (clips.some(c => c.keeps) ? ' using my Claude Video Editor trims.'
+      : scope === 'clip' ? ' from its finished video.' : ' from their finished videos.');
+    const instruction = ask + '\nExport request ' + id + ' is saved in the project: in the Claude Video Editor folder, run node tools/render-export.mjs --id ' + id + '.';
+    const req = { id, at: new Date().toISOString(), project: proj, title: document.title, batch: BATCH.name, scope, orientation: o, width: w, height: h, clips, instruction };
+    let box = null; try { box = JSON.parse(localStorage.getItem(EXPORT_KEY)); } catch (e) {}
+    if (!box || !Array.isArray(box.requests)) box = { v: 1, requests: [] };
+    box.requests = box.requests.concat(req).slice(-20);
+    let kept = true; try { localStorage.setItem(EXPORT_KEY, JSON.stringify(box)); } catch (e) { kept = false; }
+    showExport(false);
+    const ok = await copyText(instruction);
+    toast(!ok ? 'Copy failed. Click the page once and try again.'
+      : !kept || !APPC ? 'Copied. Open the app link so your agent can read the request.'
+      : 'Copied for your agent: ' + what + ' at ' + w + 'x' + h + '. Paste it in.');
+  }
+  $('btnExport').addEventListener('click', () => showExport(!exportOpen()));
+  $('exportSizes').addEventListener('click', e => {
+    const b = e.target.closest('[data-tier]'); if (!b) return;
+    expTier = +b.dataset.tier; try { localStorage.setItem('rubric-export-tier', String(expTier)); } catch (e2) {}
+    paintExport();
+  });
+  $('btnExportClip').addEventListener('click', () => requestExport('clip'));
+  $('btnExportAll').addEventListener('click', () => requestExport('all'));
+  document.addEventListener('pointerdown', e => { if (exportOpen() && !e.target.closest('.expwrap')) showExport(false); }, true);
+
+  // ---------- theme ----------
+  (function () {
+    const root = document.documentElement;
+    let saved = 'dark'; try { saved = localStorage.getItem('rubric-theme') || 'dark'; } catch (e) {}
+    const apply = t => { root.setAttribute('data-theme', t); root.style.colorScheme = t; if (window.rubricRedraw) window.rubricRedraw(); };
+    apply(saved);
+    $('themeToggle').addEventListener('click', () => {
+      const next = root.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+      try { localStorage.setItem('rubric-theme', next); } catch (e) {}
+      apply(next);
+    });
+  })();
+
+  // ---------- resizable windows ----------
+  (function () {
+    const root = document.documentElement, KEY = STORE_KEY + ':layout';
+    let sizes = {}; try { sizes = JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) {}
+    const keep = () => { try { localStorage.setItem(KEY, JSON.stringify(sizes)); } catch (e) {} };
+    Object.entries(sizes).forEach(([k, v]) => root.style.setProperty(k, v + 'px'));
+    document.querySelectorAll('.split').forEach(sp => {
+      const name = sp.dataset.var, vert = sp.dataset.axis === 'y', target = document.querySelector(sp.dataset.target);
+      let d = null;
+      sp.addEventListener('pointerdown', e => {
+        if (e.button !== 0) return; e.preventDefault();
+        // the size being set is the grid track, which is the window plus the margin that holds its shadow
+        const box = target.getBoundingClientRect(), cs = getComputedStyle(target);
+        const pad = vert ? parseFloat(cs.marginTop) + parseFloat(cs.marginBottom) : parseFloat(cs.marginLeft) + parseFloat(cs.marginRight);
+        d = { p0: vert ? e.clientY : e.clientX, v0: (vert ? box.height : box.width) + (pad || 0) }; sp.classList.add('drag'); sp.setPointerCapture(e.pointerId);
+      });
+      sp.addEventListener('pointermove', e => {
+        if (!d) return;
+        const max = (vert ? innerHeight : innerWidth) * (+sp.dataset.maxf || .6);
+        const val = Math.round(clamp(d.v0 + (vert ? e.clientY : e.clientX) - d.p0, +sp.dataset.min || 120, max));
+        sizes[name] = val; root.style.setProperty(name, val + 'px');
+      });
+      const end = () => { if (!d) return; d = null; sp.classList.remove('drag'); keep(); };
+      sp.addEventListener('pointerup', end); sp.addEventListener('pointercancel', end);
+      sp.addEventListener('dblclick', () => { delete sizes[name]; root.style.removeProperty(name); keep(); });
+    });
+  })();
+
+  // ---------- boot ----------
+  if (!REELS.length) { document.querySelector('.work').innerHTML = '<p class="empty">This project has no clips yet. Run /cut on a recording, or tools/make-project.mjs on a spec (see the README).</p>'; return; }
+  $('globalNote').value = state.global || '';
+  setRate(rate); paintHist();
+  let start = null; try { const v = localStorage.getItem(STORE_KEY + ':cur'); if (v != null) start = +v; } catch (e) {}
+  const startGroup = (start != null && groupOf[start]) || GROUPS[0];
+  selectReel(startGroup.versions[startGroup.versions.length - 1]);
+})();
+</script>
+</body>
+</html>

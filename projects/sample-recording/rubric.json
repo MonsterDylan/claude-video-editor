@@ -1,0 +1,10 @@
+{
+ "title": "Sample recording",
+ "kicker": "sample, cut by /cut",
+ "orientation": "landscape",
+ "created": "2026-10-14T02:48:29.805Z",
+ "built": "2026-10-14T02:48:29.806Z",
+ "spec": "sample/spec.json",
+ "storeKey": "rubric-editor-sample-recording",
+ "ns": "rubric-editor-sample-recording"
+}
